@@ -1,0 +1,24 @@
+{
+    "name": "sample-theme",
+    "theme-words": [
+        "apple",
+        "banana",
+        "cherry",
+        "date",
+        "elderberry"
+    ],
+    "grid-size": [
+        5,
+        8
+    ],
+    "grid": [
+        "GSTLE",
+        "YRNDD",
+        "LPAAZ",
+        "EAPEC",
+        "RANEH",
+        "RRBYR",
+        "EBEAR",
+        "RVREE"
+    ]
+}
