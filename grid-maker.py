@@ -396,7 +396,7 @@ def main():
         generator = WordPlacer(width, height, words)
         grid = generator.place_words()
 
-        print(f"testing:")
+        print("testing:")
         print_grid(grid)
 
         if grid:
