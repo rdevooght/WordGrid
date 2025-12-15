@@ -12,6 +12,9 @@ const DEFAULT_THEME = {
         8
     ],
     "grid": [
+        "11111",
+        "22222",
+        "33333",
         "GSTLE",
         "YRNDD",
         "LPAAZ",

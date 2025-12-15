@@ -18,6 +18,7 @@ function game() {
         // Theme State
         themeWords: [],
         foundThemeWords: [],
+        columnRefillIndices: [], // Track current 'top' row for each column in theme
         dictionary: null, // Optimization: Map word -> category
 
         // computed checks
@@ -46,13 +47,24 @@ function game() {
             if (this.gameMode === 'theme' && typeof DEFAULT_THEME !== 'undefined') {
                 // Load from Theme
                 const themeGrid = DEFAULT_THEME.grid; // Array of strings "ABCDE"
+                const totalRows = themeGrid.length;
+                const startRow = Math.max(0, totalRows - this.height);
+
+                // Initialize refill indices for each column
+                // They point to the row "above" the visible grid in the theme
+                this.columnRefillIndices = new Array(this.width).fill(startRow - 1);
+
                 for (let y = 0; y < this.height; y++) {
-                    const row = themeGrid[y];
+                    // Use rows from the bottom of the theme grid
+                    const themeRowIndex = startRow + y;
+                    const row = (themeRowIndex < totalRows) ? themeGrid[themeRowIndex] : "";
+
                     for (let x = 0; x < this.width; x++) {
-                        const idx = y * this.width + x;
+                        const letter = (row && x < row.length) ? row[x] : this.getRandomLetter();
+
                         this.grid.push({
                             id: Math.random().toString(36).substr(2, 9),
-                            letter: row[x],
+                            letter: letter,
                             x: x,
                             y: y,
                             status: 'idle'
@@ -61,6 +73,7 @@ function game() {
                 }
             } else {
                 // Random Generation
+                this.columnRefillIndices = new Array(this.width).fill(-1); // No theme refill
                 for (let i = 0; i < this.width * this.height; i++) {
                     this.grid.push({
                         id: Math.random().toString(36).substr(2, 9),
@@ -371,9 +384,28 @@ function game() {
                 // Fill top with new letters
                 const missing = this.height - newCol.length;
                 for (let k = 0; k < missing; k++) {
+                    let newLetter;
+
+                    // Check if we have reserve letters in the theme for this column
+                    if (this.gameMode === 'theme' &&
+                        this.columnRefillIndices &&
+                        this.columnRefillIndices[x] >= 0) {
+
+                        const themeRowIdx = this.columnRefillIndices[x];
+                        // Get letter from theme
+                        if (DEFAULT_THEME.grid[themeRowIdx] && DEFAULT_THEME.grid[themeRowIdx][x]) {
+                            newLetter = DEFAULT_THEME.grid[themeRowIdx][x];
+                        } else {
+                            newLetter = this.getRandomLetter(); // Fallback if theme grid is malformed
+                        }
+                        this.columnRefillIndices[x]--;
+                    } else {
+                        newLetter = this.getRandomLetter();
+                    }
+
                     newCol.unshift({
                         id: Math.random().toString(36).substr(2, 9),
-                        letter: this.getRandomLetter(),
+                        letter: newLetter,
                         x: x,
                         y: k, // temporary
                         status: 'new'

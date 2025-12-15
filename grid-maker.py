@@ -1,28 +1,98 @@
+import copy
 import json
 import random
+import re
 import sys
 
 
-class GridGenerator:
-    def __init__(self, width, height, words, debug=False):
+def apply_gravity(grid, path, filler=-1):
+    """
+    Removes the cells in path from grid and shifts down.
+    Returns a new grid.
+    """
+    width = len(grid)
+    height = len(grid[0])
+    new_grid = copy.deepcopy(grid)
+
+    path_set = set(path)
+
+    for x in range(width):
+        # Filter out removed items
+        new_col = []
+        for y in range(height):
+            if (x, y) not in path_set:
+                new_col.append(grid[x][y])
+
+        # Fill Top with filler
+        missing = height - len(new_col)
+        for _ in range(missing):
+            new_col.append(filler)
+
+        new_grid[x] = new_col
+
+    return new_grid
+
+
+def convert_2Dgrid_to_list_of_strings(grid):
+    """
+    Converts a column-major 2D grid to a list of strings.
+    in the 2D grid, y=0 corresponds to the bottom row, but in the list of strings, the first string is the top row.
+
+    ex:
+        [[A, B, C, D],
+        [E, F, G, H],
+        [I, J, K, L]]
+        -> [
+            'DHL',
+            'CGK',
+            'BFJ',
+            'AEI'
+        ]
+    """
+    height = len(grid[0])
+    rows = [[] for _ in range(height)]
+
+    for col in grid:
+        for y, item in enumerate(col):
+            rows[height - y - 1].append(item)
+
+    return ["".join(row) for row in rows]
+
+
+def print_grid(grid):
+    for y in range(len(grid[0]))[::-1]:
+        for x in range(len(grid)):
+            print(grid[x][y] if grid[x][y] != -1 else ".", end="")
+        print()
+
+
+class WordPlacer:
+    def __init__(self, width, visible_height, words, full_height=None, debug=False):
+        """
+        The full height is gives the total height of the grid, including the hidden rows.
+        the visible height is the height of the grid that is visible to the user.
+        Words can only be found in the visible height, but letters can be placed in the full height, as they might become visible later.
+        """
         self.width = width
-        self.height = height
-        self.words = [w.lower() for w in words]
+        self.visible_height = visible_height
+        self.full_height = full_height or visible_height * 2
+        self.words = [w.upper() for w in words]
         self.debug = debug
         self.letters = "EEEEEEEEEEEEAAAAAAAAAIIIIIIIIIOOOOOOOONNNNNNRRRRRRTTTTTTLLLLSSSSUUUDDDDGGGGBBCCMMPPFFHHVVWWYYKJXQZ"
 
-    def generate(self):
+    def place_words(self):
         """
         Generates a grid where words can be found in sequence.
-        Returns flattened string of grid or None if failed.
+        Returns grid in 2D array format or None if failed.
+        Only the letters for the words are placed, all other cells are filled with -1
         """
         # Schema tracks the visual cell -> original cell mapping.
         # -1 means the cell is filled from "future" random drops (unusable).
         # We start with a full grid of usable slots.
         # stored as col-major list of lists: schema[x][y]
-        # where y=0 is TOP (visual), y=Height-1 is BOTTOM.
+        # where y=0 is Bottom (visual), y=Height-1 is TOP.
         initial_schema = [
-            [(x, y) for y in range(self.height)] for x in range(self.width)
+            [(x, y) for y in range(self.full_height)] for x in range(self.width)
         ]
 
         # Current assignment: {(x,y): letter}
@@ -32,7 +102,7 @@ class GridGenerator:
             return self._finalize_grid(assignment)
         return None
 
-    def _solve(self, word_idx, schema, assignment):
+    def _solve(self, word_idx, schema, assignment, attempts=10):
         if word_idx >= len(self.words):
             return True
 
@@ -40,22 +110,27 @@ class GridGenerator:
         if self.debug:
             print(f"Trying to place '{word}' (Word {word_idx + 1}/{len(self.words)})")
 
-        # Find all valid paths for this word in the current schema
-        paths = self._find_paths(word, schema, assignment)
+        for i in range(attempts):
+            if self.debug:
+                print(f"Attempt {i + 1}/{attempts}")
 
-        # Shuffle paths to get random solutions
-        random.shuffle(paths)
+            # Find a valid path for this word in the current schema
+            po_pc = self._find_path(word, schema, assignment)
 
-        for path in paths:
+            if po_pc is None:
+                continue
+
+            path_orig, path_vis = po_pc
+
             # 1. Tentative Assignment
             newly_assigned = []
             possible = True
 
-            for (sx, sy), letter in zip(path, word):
+            for (sx, sy), letter in zip(path_orig, word):
                 if (sx, sy) not in assignment:
                     assignment[(sx, sy)] = letter
                     newly_assigned.append((sx, sy))
-                elif assignment[(sx, sy)] != letter:
+                else:
                     possible = False
                     break
 
@@ -65,35 +140,11 @@ class GridGenerator:
                     del assignment[pt]
                 continue
 
-            # 2. Simulate Gravity (Transition)
-            # Remove the used cells from schema
-            # Path contains original coords (sx, sy).
-            # We need to find where they are in CURRENT schema to remove them.
-            # Actually, `_find_paths` returns Original Coords.
-            # To simulate gravity, we need to know which VISUAL slots were removed.
-
-            # Let's map Original->Visual in current schema
-            # visual_refs = []
-            # for ox, oy in path:
-            #     found = False
-            #     for vx in range(self.width):
-            #         for vy in range(self.height):
-            #             if schema[vx][vy] == (ox, oy):
-            #                 visual_refs.append((vx, vy))
-            #                 found = True
-            #                 break
-            #     if not found:
-            #         # Should not happen if path finding logic is correct
-            #         possible = False
-            #         break
-
-            # if not possible:
-            #    ... revert ...
-
-            next_schema = self._apply_gravity(schema, path)
+            # 2. Apply gravity to the schema
+            next_schema = apply_gravity(schema, path_vis)
 
             # 3. Recurse
-            if self._solve(word_idx + 1, next_schema, assignment):
+            if self._solve(word_idx + 1, next_schema, assignment, attempts=attempts):
                 return True
 
             # 4. Backtrack
@@ -102,30 +153,36 @@ class GridGenerator:
 
         return False
 
-    def _find_paths(self, word, schema, assignment):
+    def _find_path(self, word, schema, assignment):
         """
-        Returns list of paths. Each path is a list of (original_x, original_y).
+        Returns a random path as a list of (original_x, original_y).
         """
-        paths = []
 
-        # Find start nodes (visual coords)
-        for x in range(self.width):
-            for y in range(self.height):
-                ox_oy = schema[x][y]
-                if ox_oy == -1:
-                    continue  # Unusable
+        # Find potential start nodes (visual coords)
+        start_nodes = [
+            (x, y)
+            for x in range(self.width)
+            for y in range(self.visible_height)
+            if schema[x][y] != -1
+        ]
+        random.shuffle(start_nodes)
 
-                ox, oy = ox_oy
-                # Check if matches first letter
-                if (ox, oy) in assignment and assignment[(ox, oy)] != word[0]:
-                    continue
+        # Loop over start nodes until a path is found
+        for x, y in start_nodes:
+            ox_oy = schema[x][y]
+            if ox_oy == -1:
+                continue  # Unusable
 
-                # Start DFS
-                self._dfs(
-                    x, y, word, 1, [(ox, oy)], [(x, y)], paths, schema, assignment
-                )
+            ox, oy = ox_oy
+            # Check if cell is available
+            if (ox, oy) in assignment:
+                continue
 
-        return paths
+            # Find a path from that starting cell
+            if po_pc := self._dfs(
+                x, y, word, 1, [(ox, oy)], [(x, y)], schema, assignment
+            ):
+                return po_pc
 
     def _dfs(
         self,
@@ -133,151 +190,130 @@ class GridGenerator:
         vy,
         word,
         idx,
-        current_path_orig,
-        current_path_vis,
-        all_paths,
+        current_path_orig,  # path in the original grid
+        current_path_vis,  # path in the current grid
         schema,
         assignment,
     ):
+        """
+        Depth-first search to find a path from the starting cell.
+        The exploration order is randomised to avoid finding the same path each time.
+        """
         if idx == len(word):
-            all_paths.append(list(current_path_orig))
-            return
+            return current_path_orig, current_path_vis
 
-        target_char = word[idx]
+        # Create a list of all 8 directions in a random order
+        directions = [
+            (dx, dy) for dx in [-1, 0, 1] for dy in [-1, 0, 1] if dx != 0 or dy != 0
+        ]
+        random.shuffle(directions)
 
         # Neighbors
-        for dx in [-1, 0, 1]:
-            for dy in [-1, 0, 1]:
-                if dx == 0 and dy == 0:
-                    continue
-                nx, ny = vx + dx, vy + dy
+        for dx, dy in directions:
+            nx, ny = vx + dx, vy + dy
 
-                if 0 <= nx < self.width and 0 <= ny < self.height:
-                    # Check if visited in this path
-                    if (nx, ny) in current_path_vis:
-                        continue
+            # Check if within bounds
+            if not (0 <= nx < self.width and 0 <= ny < self.visible_height):
+                continue
 
-                    ox_oy = schema[nx][ny]
-                    if ox_oy == -1:
-                        continue
+            # Check if visited in this path
+            if (nx, ny) in current_path_vis:
+                continue
 
-                    ox, oy = ox_oy
+            ox_oy = schema[nx][ny]
 
-                    # Check constraints
-                    if (ox, oy) in assignment and assignment[(ox, oy)] != target_char:
-                        continue
+            # Check it's one of the original cells
+            if ox_oy == -1:
+                continue
 
-                    # Recurse
-                    current_path_orig.append((ox, oy))
-                    current_path_vis.append((nx, ny))
-                    self._dfs(
-                        nx,
-                        ny,
-                        word,
-                        idx + 1,
-                        current_path_orig,
-                        current_path_vis,
-                        all_paths,
-                        schema,
-                        assignment,
-                    )
-                    current_path_orig.pop()
-                    current_path_vis.pop()
+            ox, oy = ox_oy
 
-    def _apply_gravity(self, schema, path_orig):
-        """
-        Removes the cells in path_orig from schema and shifts down.
-        Returns a new schema.
-        """
-        new_schema = [col[:] for col in schema]  # Deep copy of list structure
+            # Check cell is available
+            if (ox, oy) in assignment:
+                continue
 
-        path_set = set(path_orig)
+            # Recurse
+            current_path_orig.append((ox, oy))
+            current_path_vis.append((nx, ny))
+            if po_pc := self._dfs(
+                nx,
+                ny,
+                word,
+                idx + 1,
+                current_path_orig,
+                current_path_vis,
+                schema,
+                assignment,
+            ):
+                return po_pc
+            current_path_orig.pop()
+            current_path_vis.pop()
 
-        for x in range(self.width):
-            # Filter out removed items
-            col = new_schema[x]
-            new_col = [item for item in col if item not in path_set]
-
-            # Fill Top (index 0) with -1
-            missing = self.height - len(new_col)
-            for _ in range(missing):
-                new_col.insert(0, -1)
-
-            new_schema[x] = new_col
-
-        return new_schema
+        # If no path found, return None
+        return None
 
     def _finalize_grid(self, assignment):
         """
-        Fills empty spots with random letters and returns rows.
+        Takes the assignement and returns a grid as an 2D array.
+        Unassigned cells are filled with -1.
         """
-        grid_rows = []
-        for y in range(self.height):
-            row = ""
-            for x in range(self.width):
+        grid = [[-1] * self.full_height for _ in range(self.width)]
+
+        for x in range(self.width):
+            for y in range(self.full_height):
                 if (x, y) in assignment:
-                    row += assignment[(x, y)].upper()
-                else:
-                    # Random letter based on frequency
-                    row += random.choice(self.letters)
-            grid_rows.append(row)
-        return grid_rows
+                    grid[x][y] = assignment[(x, y)]
+
+        return grid
 
 
 class Verifier:
-    def __init__(self, width, height, words, final_grid):
-        self.width = width
-        self.height = height
-        self.words = [w.lower() for w in words]
-        self.grid = final_grid  # List of strings
+    def __init__(self, visible_height, words, final_grid):
+        self.width = len(final_grid)
+        self.full_height = len(final_grid[0])
+        self.visible_height = visible_height
+        self.words = [w.upper() for w in words]
+        self.grid = final_grid  # 2D array, col-major
 
     def verify(self):
-        # Convert grid to schema-like structure with actual letters
-        # current_grid[x][y] = char
-        current_grid = [
-            [self.grid[y][x].lower() for y in range(self.height)]
-            for x in range(self.width)
-        ]
+        # Make a copy of the grid
+        current_grid = copy.deepcopy(self.grid)
+        remaining_words = self.words.copy()
+        return self._check(current_grid, remaining_words)
 
-        return self._check(0, current_grid)
-
-    def _check(self, word_idx, grid):
-        if word_idx >= len(self.words):
+    def _check(self, grid, remaining_words):
+        if len(remaining_words) == 0:
             return True
 
-        word = self.words[word_idx]
+        # Find all possible paths available from that grid
+        all_paths = []
+        for word in remaining_words:
+            if paths := self._find_all_paths(grid, word):
+                all_paths.extend([(word, path) for path in paths])
 
-        # Find all occurrences
-        paths = self._find_all_paths(grid, word)
-
-        if not paths:
-            print(f"Verification Failed: Could not find '{word}' at step {word_idx}")
+        if not all_paths:
+            print(
+                f"Verification Failed: Could not find any of the remaining words: {', '.join(remaining_words)}"
+            )
             return False
 
-        # For "No Dead End", we should ensure ANY valid pick allows proceeding?
-        # Or at least ONE?
-        # "always possible" usually means "a solution exists".
-        # But "no dead-end" implies "User cannot get stuck if they play correctly".
-        # If there are multiple APPLEs, and one kills the solution, that is a "trap" / "dead-end".
-        # So we must ensure that ALL valid paths for Word_i allow solving Word_{i+1}...
-
-        # Optimization: If paths is unique, we are good (check next).
-        # If multiple, verify ALL.
-
-        for path in paths:
-            next_grid = self._apply_gravity_char(grid, path)
-            if not self._check(word_idx + 1, next_grid):
+        # Try all possible paths and ensure none lead to dead ends
+        for word, path in all_paths:
+            next_grid = apply_gravity(grid, path)
+            remaining_words.remove(word)
+            if not self._check(next_grid, remaining_words):
                 print(
                     f"Dead end detected: Picking '{word}' at {path} makes future impossible."
                 )
                 return False
+            remaining_words.append(word)
 
         return True
 
     def _find_all_paths(self, grid, word):
         paths = []
         for x in range(self.width):
-            for y in range(self.height):
+            for y in range(self.visible_height):
                 if grid[x][y] == word[0]:
                     self._dfs_char(x, y, word, 1, [(x, y)], paths, grid)
         return paths
@@ -293,11 +329,9 @@ class Verifier:
                     continue
                 nx, ny = vx + dx, vy + dy
 
-                if 0 <= nx < self.width and 0 <= ny < self.height:
+                if 0 <= nx < self.width and 0 <= ny < self.visible_height:
                     if (nx, ny) in current_path:
                         continue
-                    if grid[nx][ny] == "?":
-                        continue  # empty/unusable
                     if grid[nx][ny] != word[idx]:
                         continue
 
@@ -305,25 +339,24 @@ class Verifier:
                     self._dfs_char(nx, ny, word, idx + 1, current_path, all_paths, grid)
                     current_path.pop()
 
-    def _apply_gravity_char(self, grid, path):
-        new_grid = [col[:] for col in grid]
-        path_set = set(path)
 
+class GridFiller:
+    def __init__(self, grid, debug=False):
+        self.grid = grid
+        self.width = len(grid)
+        self.height = len(grid[0])
+        self.debug = debug
+        self.letters = "EEEEEEEEEEEEAAAAAAAAAIIIIIIIIIOOOOOOOONNNNNNRRRRRRTTTTTTLLLLSSSSUUUDDDDGGGGBBCCMMPPFFHHVVWWYYKJXQZ"
+        self.is_letter = re.compile(r"[A-Z]")
+
+    def fill_grid(self):
         for x in range(self.width):
-            col = new_grid[x]
-            # remove used
-            new_col = []
             for y in range(self.height):
-                if (x, y) not in path_set:
-                    new_col.append(col[y])
-
-            # pad top with '?' (randoms are unknown/unusable for logic)
-            missing = self.height - len(new_col)
-            for _ in range(missing):
-                new_col.insert(0, "?")
-
-            new_grid[x] = new_col
-        return new_grid
+                if not isinstance(self.grid[x][y], str) or not self.is_letter.match(
+                    self.grid[x][y]
+                ):
+                    self.grid[x][y] = random.choice(self.letters)
+        return self.grid
 
 
 def main():
@@ -344,34 +377,60 @@ def main():
     grid_size = data.get("grid-size", [6, 8])  # width, height
     width, height = grid_size
 
+    n_letters = sum(len(word) for word in words)
+
     print(f"Generating grid for '{data.get('name')}'...")
-    print(f"Words: {words}")
-    print(f"Size: {width}x{height}")
+    print(f"Words: {words} ({n_letters} letters)")
+    print(f"Size: {width}x{height} ({width * height} cells)")
+
+    if n_letters > width * height:
+        print(f"Error: Not enough cells ({width * height}) for all words ({n_letters})")
+        sys.exit(1)
 
     # Generate
     # Retry loop if strict verification fails
     max_retries = 100
+
+    word_placement = None
     for i in range(max_retries):
-        generator = GridGenerator(width, height, words)
-        grid_rows = generator.generate()
+        generator = WordPlacer(width, height, words)
+        grid = generator.place_words()
 
-        if grid_rows:
-            # Verify
-            verifier = Verifier(width, height, words, grid_rows)
+        print(f"testing:")
+        print_grid(grid)
+
+        if grid:
+            # Verify that the grid with only the letters for the words is valid
+            verifier = Verifier(height, words, grid)
             if verifier.verify():
-                print(f"Success! Grid generated (Attempt {i + 1})")
-                data["grid"] = grid_rows
-
-                with open(theme_file, "w") as f:
-                    # Write pretty JSON
-                    json.dump(data, f, indent=4)
-                sys.exit(0)
+                print(f"Success! Found word placement (Attempt {i + 1})")
+                word_placement = grid
+                break
             else:
                 print(f"Verification failed on attempt {i + 1}. Retrying...")
         else:
-            print(f"Generation blocked on attempt {i + 1}.")
+            print(f"Generation failed on attempt {i + 1}.")
 
-    print("Failed to generate a valid grid after max retries.")
+    if word_placement is None:
+        print("Failed to place words in a valid grid after max retries.")
+        sys.exit(1)
+
+    # Found word placement, now will try to fill grid
+    for i in range(max_retries):
+        filler = GridFiller(word_placement)
+        grid = filler.fill_grid()
+        verifier = Verifier(height, words, grid)
+        if verifier.verify():
+            print(f"Success! Found grid (Attempt {i + 1})")
+
+            data["grid"] = convert_2Dgrid_to_list_of_strings(grid)
+            with open(theme_file, "w") as f:
+                # Write pretty JSON
+                json.dump(data, f, indent=4)
+            sys.exit(0)
+        else:
+            print(f"Verification failed on attempt {i + 1}. Retrying...")
+    print("Failed to fill grid with words after max retries.")
     sys.exit(1)
 
 
