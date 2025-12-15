@@ -18,6 +18,7 @@ function game() {
         // Theme State
         themeWords: [],
         foundThemeWords: [],
+        totalThemeWords: 0,
         columnRefillIndices: [], // Track current 'top' row for each column in theme
         dictionary: null, // Optimization: Map word -> category
 
@@ -32,6 +33,7 @@ function game() {
                     this.width = DEFAULT_THEME['grid-size'][0];
                     this.height = DEFAULT_THEME['grid-size'][1];
                     this.themeWords = [...DEFAULT_THEME['theme-words']];
+                    this.totalThemeWords = this.themeWords.length;
                     this.foundThemeWords = [];
                 }
             }
@@ -240,8 +242,9 @@ function game() {
 
         checkWord(word) {
             if (word.length < 3) return false;
-            // Check if already found
+            // Check if already found (in either list)
             if (this.validWordsHistory.some(h => h.word === word)) return false;
+            if (this.foundThemeWords.includes(word)) return false;
 
             // Check theme words first
             if (this.gameMode === 'theme' && this.themeWords.includes(word)) {
@@ -308,11 +311,13 @@ function game() {
             this.score += points;
             this.lastWordCategory = category;
 
-            // Add to history
-            this.validWordsHistory.push({
-                word: word,
-                category: category
-            });
+            // Add to history if not a theme word
+            if (!isThemeWord) {
+                this.validWordsHistory.push({
+                    word: word,
+                    category: category
+                });
+            }
 
             // Handle Mode behavior
             if (this.gameMode === 'destructive') {
