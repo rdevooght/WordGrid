@@ -22,9 +22,52 @@ function game() {
         columnRefillIndices: [], // Track current 'top' row for each column in theme
         dictionary: null, // Optimization: Map word -> category
 
+        // Destruct Button State
+        lastFoundWordIndices: [], // Indices of the last valid word (for highlighting)
+        lastFoundWord: '',        // The actual word string
+
+        // Mana System
+        mana: 0,
+        maxMana: 30,
+
+        // Ability Mode (for bomb/swap that require clicks)
+        activeAbility: null, // null, 'bomb', 'swap'
+        swapFirstIndex: null, // For swap: stores first clicked cell
+
+        // Hint highlighting
+        hintHighlightIndices: [], // Cells highlighted by hint ability
+
+        // UI State
+        showToast: false,
+        toastMessage: '',
+
         // computed checks
         get isValidWord() {
             return this.checkWord(this.currentWord);
+        },
+
+        // Check if all theme words have been found
+        get allThemeWordsFound() {
+            return this.gameMode === 'theme' && this.themeWords.length === 0;
+        },
+
+        // Check if destruct button should be enabled
+        get canDestruct() {
+            return this.allThemeWordsFound && this.lastFoundWordIndices.length > 0;
+        },
+
+        // Ability availability checks
+        get canSmallHint() {
+            return this.mana >= 2;
+        },
+        get canBigHint() {
+            return this.mana >= 5;
+        },
+        get canBomb() {
+            return this.allThemeWordsFound && this.mana >= 5;
+        },
+        get canSwap() {
+            return this.allThemeWordsFound && this.mana >= 5;
         },
 
         initGame() {
@@ -94,13 +137,22 @@ function game() {
 
         getCellClasses(cell) {
             let classes = 'tile'; // Base class
-            if (this.selectedIndices.includes(this.grid.indexOf(cell))) {
+            const cellIndex = this.grid.indexOf(cell);
+            if (this.selectedIndices.includes(cellIndex)) {
                 classes += ' selected';
+            }
+            if (this.lastFoundWordIndices.includes(cellIndex)) {
+                classes += ' highlighted';
+            }
+            if (this.hintHighlightIndices.includes(cellIndex)) {
+                classes += ' hint-highlight';
+            }
+            if (this.swapFirstIndex === cellIndex) {
+                classes += ' swap-selected';
             }
             if (cell.status === 'removed') {
                 classes += ' removed';
             }
-            // Highlight found theme words? Maybe just animation.
             return classes;
         },
 
@@ -139,10 +191,46 @@ function game() {
             // Recalculate physical positions of tiles
             this.calculateTileBounds();
 
+            // Check if we are interacting with a specific cell for abilities
+            if (this.activeAbility) {
+                const index = this.getTileIndexAt(x, y);
+                if (index !== -1) {
+                    this.handleGridClick(index);
+                    return; // Don't start dragging if we used an ability
+                } else {
+                    // Clicked outside any tile -> Cancel ability
+                    this.cancelAbility();
+                    // Don't return, allow falling through to start normal drag potentially?
+                    // Actually, if we cancel, we probably want to let the user start dragging immediately.
+                }
+            }
+
+            // Clear hint highlights when starting new selection
+            this.hintHighlightIndices = [];
+
+            // Clear previous word highlight when starting new selection
+            this.lastFoundWordIndices = [];
+            this.lastFoundWord = '';
+
             this.selectedIndices = [];
             this.currentWord = '';
             this.lastWordCategory = '';
             this.detectCell(x, y);
+        },
+
+        getTileIndexAt(x, y) {
+            if (!this.tileBounds || this.tileBounds.length === 0) return -1;
+
+            for (let i = 0; i < this.tileBounds.length; i++) {
+                const bound = this.tileBounds[i];
+                if (!bound) continue;
+                const dx = x - bound.cx;
+                const dy = y - bound.cy;
+                if (dx * dx + dy * dy < bound.radiusSq) {
+                    return i;
+                }
+            }
+            return -1;
         },
 
         calculateTileBounds() {
@@ -296,6 +384,8 @@ function game() {
 
         submitWord() {
             const word = this.currentWord;
+            const indices = [...this.selectedIndices]; // Copy before clearing
+
             if (this.checkWord(word)) {
                 let category = 'common';
                 if (this.dictionary && Object.prototype.hasOwnProperty.call(this.dictionary, word)) {
@@ -309,7 +399,7 @@ function game() {
                     category = 'legendary'; // Theme words are legendary!
                 }
 
-                this.processValidWord(word, category, isThemeWord);
+                this.processValidWord(word, category, isThemeWord, indices);
             } else {
                 // Invalid - just clear
             }
@@ -317,7 +407,7 @@ function game() {
             this.currentWord = '';
         },
 
-        processValidWord(word, category, isThemeWord) {
+        processValidWord(word, category, isThemeWord, indices) {
             // Calculate Score
             let points = 0;
             switch (word.length) {
@@ -336,6 +426,10 @@ function game() {
             this.score += points;
             this.lastWordCategory = category;
 
+            // Add mana based on points (capped at maxMana)
+            const manaGain = Math.floor(points / 10);
+            this.mana = Math.min(this.maxMana, this.mana + manaGain);
+
             // Add to history if not a theme word
             if (!isThemeWord) {
                 this.validWordsHistory.push({
@@ -344,26 +438,27 @@ function game() {
                 });
             }
 
-            // Handle Mode behavior
-            if (this.gameMode === 'destructive') {
-                this.destroySelected();
-            } else if (this.gameMode === 'theme') {
+            // Handle theme mode behavior
+            if (this.gameMode === 'theme') {
                 if (isThemeWord) {
-                    // Remove from list
+                    // Theme words are auto-destroyed
                     const idx = this.themeWords.indexOf(word);
                     if (idx > -1) this.themeWords.splice(idx, 1);
                     this.foundThemeWords.push(word);
 
+                    // Use passed indices for destruction
+                    this.selectedIndices = indices;
                     this.destroySelected();
+                    this.selectedIndices = [];
 
                     if (this.themeWords.length === 0) {
                         this.handleThemeWin();
                     }
                 } else {
-                    // Non-theme word in theme mode: Score points, NO destruction
+                    // Non-theme word: keep highlighted for manual destruct
+                    this.lastFoundWordIndices = indices;
+                    this.lastFoundWord = word;
                 }
-            } else {
-                // Standard mode
             }
 
             if (this.score > this.highScore) {
@@ -373,9 +468,155 @@ function game() {
         },
 
         handleThemeWin() {
-            // Congratulation Logic
-            alert("Congratulations! You found all theme words! Keep playing for high score.");
-            // Ideally, show a modal or overlay instead of alert
+            this.triggerToast("Theme Completed! 🌿");
+        },
+
+        triggerToast(message) {
+            this.toastMessage = message;
+            this.showToast = true;
+            setTimeout(() => {
+                this.showToast = false;
+            }, 3000);
+        },
+
+        // Destruct button action - destroys the currently highlighted word
+        destructLastWord() {
+            if (!this.canDestruct) return;
+
+            // Use the stored indices from the last found word
+            this.selectedIndices = [...this.lastFoundWordIndices];
+            this.destroySelected();
+
+            // Clear the highlight state
+            this.lastFoundWordIndices = [];
+            this.lastFoundWord = '';
+            this.selectedIndices = [];
+        },
+
+        // ========== ABILITY METHODS ==========
+
+        // Find a path in the grid that spells a valid word
+        findWordInGrid() {
+            // Try theme words first (unfound ones), then dictionary words
+            const wordsToTry = [
+                ...this.themeWords,
+                ...Object.keys(this.dictionary || {}).filter(w =>
+                    !this.validWordsHistory.some(h => h.word === w) &&
+                    !this.foundThemeWords.includes(w)
+                )
+            ];
+
+            for (const word of wordsToTry) {
+                const path = this.findPathForWord(word);
+                if (path) return { word, path };
+            }
+            return null;
+        },
+
+        findPathForWord(word) {
+            // DFS from each cell that matches first letter
+            const letters = word.toUpperCase().split('');
+            for (let startIdx = 0; startIdx < this.grid.length; startIdx++) {
+                if (this.grid[startIdx].letter === letters[0] &&
+                    this.grid[startIdx].status !== 'removed') {
+                    const path = this.dfsPath(startIdx, letters, 0, []);
+                    if (path) return path;
+                }
+            }
+            return null;
+        },
+
+        dfsPath(index, letters, letterIdx, visited) {
+            // Base cases
+            if (visited.includes(index)) return null;
+            if (this.grid[index].status === 'removed') return null;
+            if (this.grid[index].letter !== letters[letterIdx]) return null;
+
+            const newVisited = [...visited, index];
+
+            // Found complete word
+            if (letterIdx === letters.length - 1) return newVisited;
+
+            // Try all neighbors
+            for (let neighbor = 0; neighbor < this.grid.length; neighbor++) {
+                if (this.isNeighbor(index, neighbor)) {
+                    const result = this.dfsPath(neighbor, letters, letterIdx + 1, newVisited);
+                    if (result) return result;
+                }
+            }
+            return null;
+        },
+
+        // Small Hint: highlight first letter of a findable word
+        useSmallHint() {
+            if (!this.canSmallHint) return;
+            const result = this.findWordInGrid();
+            if (result) {
+                this.hintHighlightIndices = [result.path[0]]; // First letter only
+                this.mana -= 2;
+            }
+        },
+
+        // Big Hint: highlight all letters of a findable word
+        useBigHint() {
+            if (!this.canBigHint) return;
+            const result = this.findWordInGrid();
+            if (result) {
+                this.hintHighlightIndices = result.path; // All letters
+                this.mana -= 5;
+            }
+        },
+
+        // Bomb: enter bomb mode (click cell to remove)
+        activateBomb() {
+            if (!this.canBomb) return;
+            this.activeAbility = 'bomb';
+        },
+
+        // Swap: enter swap mode (click two cells to swap)
+        activateSwap() {
+            if (!this.canSwap) return;
+            this.activeAbility = 'swap';
+            this.swapFirstIndex = null;
+        },
+
+        // Cancel any active ability
+        cancelAbility() {
+            this.activeAbility = null;
+            this.swapFirstIndex = null;
+        },
+
+        // Handle grid click during ability mode
+        handleGridClick(index) {
+            if (this.grid[index].status === 'removed') return;
+
+            if (this.activeAbility === 'bomb') {
+                this.executeBomb(index);
+            } else if (this.activeAbility === 'swap') {
+                this.executeSwap(index);
+            }
+        },
+
+        executeBomb(index) {
+            this.selectedIndices = [index];
+            this.destroySelected();
+            this.selectedIndices = [];
+            this.mana -= 5;
+            this.activeAbility = null;
+        },
+
+        executeSwap(index) {
+            if (this.swapFirstIndex === null) {
+                this.swapFirstIndex = index;
+            } else if (this.swapFirstIndex !== index) {
+                // Swap the letters
+                const temp = this.grid[this.swapFirstIndex].letter;
+                this.grid[this.swapFirstIndex].letter = this.grid[index].letter;
+                this.grid[index].letter = temp;
+                this.mana -= 5;
+                this.activeAbility = null;
+                this.swapFirstIndex = null;
+            }
         },
 
         destroySelected() {
@@ -396,7 +637,7 @@ function game() {
             // Wait for anim then shift
             setTimeout(() => {
                 this.shiftGrid();
-            }, 200);
+            }, 500);
         },
 
         shiftGrid() {
@@ -479,13 +720,9 @@ function game() {
             this.gameOver = true;
         },
 
-        restartGame(mode) {
-            if (mode) this.gameMode = mode;
+        restartGame() {
+            this.gameMode = 'theme';
             this.initGame();
-        },
-
-        setMode(mode) {
-            this.gameMode = mode;
         },
 
         formatTime(seconds) {

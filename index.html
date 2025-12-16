@@ -27,26 +27,76 @@
             </header>
 
             <div class="content-wrapper">
-                <!-- The Grid -->
-                <div class="grid-wrapper" @touchstart.prevent="handleTouchStart" @touchmove.prevent="handleTouchMove"
-                    @touchend.prevent="handleTouchEnd" @mousedown.prevent="handleMouseDown"
-                    @mousemove.prevent="handleMouseMove" @mouseup.prevent="handleMouseUp" @mouseleave="handleMouseUp">
-                    <svg class="path-overlay" :viewBox="`0 0 ${pathViewBox.width} ${pathViewBox.height}`">
-                        <polyline class="selection-path" :points="getPathPoints()" fill="none" />
-                    </svg>
-                    <div class="game-grid" :style="{ '--grid-cols': width, '--grid-rows': height }">
-                        <template x-for="(cell, index) in grid" :key="cell.id">
-                            <div class="tile" :class="getCellClasses(cell)" :data-index="index">
-                                <span x-text="cell.letter"></span>
+                <!-- Main Column (Grid + Actions) -->
+                <div class="game-main-column">
+                    <!-- The Grid -->
+                    <div class="grid-wrapper" @touchstart.prevent="handleTouchStart"
+                        @touchmove.prevent="handleTouchMove" @touchend.prevent="handleTouchEnd"
+                        @mousedown.prevent="handleMouseDown" @mousemove.prevent="handleMouseMove"
+                        @mouseup.prevent="handleMouseUp" @mouseleave="handleMouseUp">
+                        <svg class="path-overlay" :viewBox="`0 0 ${pathViewBox.width} ${pathViewBox.height}`">
+                            <polyline class="selection-path" :points="getPathPoints()" fill="none" />
+                        </svg>
+                        <div class="game-grid" :style="{ '--grid-cols': width, '--grid-rows': height }">
+                            <template x-for="(cell, index) in grid" :key="cell.id">
+                                <div class="tile" :class="getCellClasses(cell)" :data-index="index">
+                                    <span x-text="cell.letter"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Action Bar -->
+                    <div class="action-bar">
+                        <!-- Mana Display -->
+                        <div class="mana-display">
+                            <div class="mana-bar">
+                                <div class="mana-fill" :style="{ width: (mana / maxMana * 100) + '%' }"></div>
                             </div>
-                        </template>
+                            <span class="mana-text" x-text="mana + '/' + maxMana"></span>
+                        </div>
+
+                        <!-- Ability Buttons Row -->
+                        <div class="ability-buttons">
+                            <button class="ability-btn small-hint" :class="{ 'enabled': canSmallHint }"
+                                :disabled="!canSmallHint" @click="useSmallHint()" title="Small Hint">
+                                <span class="btn-icon">💡</span>
+                                <span class="btn-cost">2</span>
+                            </button>
+
+                            <button class="ability-btn big-hint" :class="{ 'enabled': canBigHint }"
+                                :disabled="!canBigHint" @click="useBigHint()" title="Big Hint">
+                                <span class="btn-icon">✨</span>
+                                <span class="btn-cost">5</span>
+                            </button>
+
+                            <button class="ability-btn bomb"
+                                :class="{ 'enabled': canBomb, 'active': activeAbility === 'bomb' }" :disabled="!canBomb"
+                                @click="activateBomb()" title="Bomb">
+                                <span class="btn-icon">�</span>
+                                <span class="btn-cost">5</span>
+                            </button>
+
+                            <button class="ability-btn swap"
+                                :class="{ 'enabled': canSwap, 'active': activeAbility === 'swap' }" :disabled="!canSwap"
+                                @click="activateSwap()" title="Swap">
+                                <span class="btn-icon">🔄</span>
+                                <span class="btn-cost">5</span>
+                            </button>
+
+                            <button class="ability-btn destruct" :class="{ 'enabled': canDestruct }"
+                                :disabled="!canDestruct" @click="destructLastWord()" title="Destruct">
+                                <span class="btn-icon">💥</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Side Panel (Right on Desktop, Bottom on Mobile) -->
                 <div class="side-panel">
                     <!-- Theme Words Panel -->
-                    <aside class="theme-words-panel" x-show="gameMode === 'theme'" x-cloak>
+                    <aside class="theme-words-panel" x-show="gameMode === 'theme'"
+                        :class="{ 'success': allThemeWordsFound }" x-cloak>
                         <div class="panel-header">
                             <h3 class="panel-title">Theme Words</h3>
                             <span class="theme-count" x-text="`${foundThemeWords.length}/${totalThemeWords}`"></span>
@@ -73,32 +123,31 @@
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Game Over Modal -->
-    <div x-show="gameOver" style="display: none" class="modal-overlay" x-transition.opacity>
-        <div class="modal-content">
-            <h1 class="modal-title">Time's Up!</h1>
-            <p class="modal-score">
-                Final Score:
-                <span class="final-score" x-text="score"></span>
-            </p>
+        <!-- Game Over Modal -->
+        <div x-show="gameOver" style="display: none" class="modal-overlay" x-transition.opacity>
+            <div class="modal-content">
+                <h1 class="modal-title">Time's Up!</h1>
+                <p class="modal-score">
+                    Final Score:
+                    <span class="final-score" x-text="score"></span>
+                </p>
 
-            <div class="modal-actions">
-                <button @click="restartGame('destructive')" class="action-btn destructive-gradient">
-                    Destructive Mode
-                </button>
-                <button @click="restartGame('standard')" class="action-btn standard-gradient">
-                    Standard Mode
-                </button>
+                <div class="modal-actions">
+                    <button @click="restartGame()" class="action-btn restart-gradient">
+                        Play Again
+                    </button>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Load Dictionary & Game Logic -->
-    <script src="dictionary.js"></script>
-    <script src="themes/20251222.js"></script>
-    <script src="app.js"></script>
+        <!-- Toast Notification -->
+        <div class="toast-notification" :class="{ 'show': showToast }" x-text="toastMessage"></div>
+
+        <!-- Load Dictionary & Game Logic -->
+        <script src="dictionary.js"></script>
+        <script src="themes/20251222.js"></script>
+        <script src="app.js"></script>
 </body>
 
 </html>
