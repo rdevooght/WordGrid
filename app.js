@@ -105,6 +105,7 @@ function game() {
         },
 
         tileBounds: [],
+        pathViewBox: { width: 100, height: 100 },
 
         handleTouchStart(e) {
             this.handleInputStart(e.touches[0].clientX, e.touches[0].clientY);
@@ -147,6 +148,11 @@ function game() {
         calculateTileBounds() {
             this.tileBounds = [];
             const tiles = document.querySelectorAll('.tile');
+            const gridWrapper = document.querySelector('.grid-wrapper');
+            if (gridWrapper) {
+                const wrapperRect = gridWrapper.getBoundingClientRect();
+                this.pathViewBox = { width: wrapperRect.width, height: wrapperRect.height };
+            }
             tiles.forEach(tile => {
                 const rect = tile.getBoundingClientRect();
                 const index = parseInt(tile.dataset.index);
@@ -229,6 +235,25 @@ function game() {
                 .map(i => this.grid[i].letter)
                 .join('')
                 .toLowerCase();
+        },
+
+        getPathPoints() {
+            if (this.selectedIndices.length < 2 || this.tileBounds.length === 0) {
+                return '';
+            }
+
+            const gridWrapper = document.querySelector('.grid-wrapper');
+            if (!gridWrapper) return '';
+            const wrapperRect = gridWrapper.getBoundingClientRect();
+
+            return this.selectedIndices.map(i => {
+                const bound = this.tileBounds[i];
+                if (!bound) return '0,0';
+                // Convert screen coordinates to local wrapper coordinates
+                const x = bound.cx - wrapperRect.left;
+                const y = bound.cy - wrapperRect.top;
+                return `${x},${y}`;
+            }).join(' ');
         },
 
         isNeighbor(i1, i2) {

@@ -31,6 +31,9 @@
                 <div class="grid-wrapper" @touchstart.prevent="handleTouchStart" @touchmove.prevent="handleTouchMove"
                     @touchend.prevent="handleTouchEnd" @mousedown.prevent="handleMouseDown"
                     @mousemove.prevent="handleMouseMove" @mouseup.prevent="handleMouseUp" @mouseleave="handleMouseUp">
+                    <svg class="path-overlay" :viewBox="`0 0 ${pathViewBox.width} ${pathViewBox.height}`">
+                        <polyline class="selection-path" :points="getPathPoints()" fill="none" />
+                    </svg>
                     <div class="game-grid" :style="{ '--grid-cols': width, '--grid-rows': height }">
                         <template x-for="(cell, index) in grid" :key="cell.id">
                             <div class="tile" :class="getCellClasses(cell)" :data-index="index">

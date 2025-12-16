@@ -190,6 +190,23 @@ body {
            Let's just ensure it doesn't collapse. */
         aspect-ratio: var(--grid-cols) / var(--grid-rows);
     }
+
+    & .path-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 10;
+    }
+
+    & .selection-path {
+        stroke: rgba(0, 0, 0, 0.3);
+        stroke-width: 8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
 }
 
 .tile {
