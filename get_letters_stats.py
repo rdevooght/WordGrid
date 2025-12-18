@@ -7,7 +7,7 @@ import numpy as np
 WORD_PATTERN = re.compile(r"^[a-zA-Z]{3,}$")
 
 
-def generate_letter_frequency(files):
+def generate_letter_frequency(files, weight_by_frequency=False):
     """
     Read files that have the following structures:
         each line contains a word followed by the frequency of the word, separated by a space
@@ -23,7 +23,9 @@ def generate_letter_frequency(files):
                         continue
                     word = word.upper()
                     for i in range(len(word)):
-                        frequencies[ord(word[i]) - ord("A")] += int(frequency)
+                        frequencies[ord(word[i]) - ord("A")] += (
+                            int(frequency) if weight_by_frequency else 1
+                        )
         except FileNotFoundError:
             print(f"Warning: {file} not found")
             return
@@ -32,7 +34,7 @@ def generate_letter_frequency(files):
     return normalised_frequencies
 
 
-def generate_matrix(files):
+def generate_matrix(files, weight_by_frequency=False):
     """
     Read files that have the following structures:
         each line contains a word followed by the frequency of the word, separated by a space
@@ -52,10 +54,10 @@ def generate_matrix(files):
                     for i in range(len(word) - 1):
                         matrix[
                             ord(word[i]) - ord("A"), ord(word[i + 1]) - ord("A")
-                        ] += int(frequency)
+                        ] += int(frequency) if weight_by_frequency else 1
                         matrix[
                             ord(word[i + 1]) - ord("A"), ord(word[i]) - ord("A")
-                        ] += int(frequency)
+                        ] += int(frequency) if weight_by_frequency else 1
 
         except FileNotFoundError:
             print(f"Warning: {file} not found")
@@ -75,13 +77,20 @@ if __name__ == "__main__":
     parser.add_argument(
         "--out_dir", required=False, default=".", help="output directory"
     )
+    parser.add_argument(
+        "--weight_by_frequency",
+        action="store_true",
+        help="Weight edges by word frequency",
+    )
 
     args = parser.parse_args()
 
     files = args.words
 
-    frequencies = generate_letter_frequency(files)
-    matrix = generate_matrix(files)
+    frequencies = generate_letter_frequency(
+        files, weight_by_frequency=args.weight_by_frequency
+    )
+    matrix = generate_matrix(files, weight_by_frequency=args.weight_by_frequency)
 
     print(frequencies)
     np.save(f"{args.out_dir}/letter_frequencies.npy", frequencies)

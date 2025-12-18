@@ -4,6 +4,14 @@ import random
 import re
 import sys
 
+import numpy as np
+
+from solve_grid import parse_dictionary, solve_grid
+
+ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+LETTER_FREQ = np.load("data/letter_frequencies.npy")
+ADJ_MATRIX = np.load("data/adjacency_matrix.npy")
+
 
 def apply_gravity(grid, path, filler=-1):
     """
@@ -341,13 +349,62 @@ class Verifier:
 
 
 class GridFiller:
-    def __init__(self, grid, debug=False):
-        self.grid = grid
+    def __init__(self, grid, alpha=0.5, beta=1.5, debug=False):
+        self.grid = copy.deepcopy(grid)
         self.width = len(grid)
         self.height = len(grid[0])
         self.debug = debug
-        self.letters = "EEEEEEEEEEEEAAAAAAAAAIIIIIIIIIOOOOOOOONNNNNNRRRRRRTTTTTTLLLLSSSSUUUDDDDGGGGBBCCMMPPFFHHVVWWYYKJXQZ"
         self.is_letter = re.compile(r"[A-Z]")
+        self.current_frequency = np.zeros(len(ALPHABET))
+        self.compute_frequency()
+        self.alpha = alpha
+        self.beta = beta
+
+    def compute_frequency(self):
+        for x in range(self.width):
+            for y in range(self.height):
+                if isinstance(self.grid[x][y], str) and self.is_letter.match(
+                    self.grid[x][y]
+                ):
+                    self.current_frequency[ord(self.grid[x][y]) - ord("A")] += 1
+
+    def get_neighbours(self, x, y):
+        neighbours = np.zeros(len(ALPHABET))
+        for dx, dy in [
+            (-1, 0),
+            (1, 0),
+            (0, -1),
+            (0, 1),
+            (1, 1),
+            (-1, -1),
+            (1, -1),
+            (-1, 1),
+        ]:
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < self.width and 0 <= ny < self.height:
+                if isinstance(self.grid[nx][ny], str) and self.is_letter.match(
+                    self.grid[nx][ny]
+                ):
+                    neighbours[ord(self.grid[nx][ny]) - ord("A")] += 1
+        return neighbours
+
+    def fill_cell(self, x, y):
+        neighbours = self.get_neighbours(x, y)
+
+        correction = np.maximum(
+            LETTER_FREQ - self.current_frequency / self.current_frequency.sum(), 0
+        )
+
+        weights = LETTER_FREQ + self.alpha * correction
+
+        if neighbours.sum() != 0:
+            # Existing neighbours -> use adjacency matrix to affect weights
+            neighbours_weights = np.dot(neighbours, ADJ_MATRIX)
+            weights += self.beta * neighbours_weights
+
+        new_letter = random.choices(ALPHABET, weights=weights)[0]
+        self.grid[x][y] = new_letter
+        self.current_frequency[ord(new_letter) - ord("A")] += 1
 
     def fill_grid(self):
         for x in range(self.width):
@@ -355,22 +412,30 @@ class GridFiller:
                 if not isinstance(self.grid[x][y], str) or not self.is_letter.match(
                     self.grid[x][y]
                 ):
-                    self.grid[x][y] = random.choice(self.letters)
+                    self.fill_cell(x, y)
         return self.grid
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: python3 grid-maker.py <theme-json-file>")
+    if len(sys.argv) < 3:
+        print("Usage: python3 grid-maker.py <theme-json-file> <dictionary-file>")
         sys.exit(1)
 
     theme_file = sys.argv[1]
+    dict_file = sys.argv[2]
 
     try:
         with open(theme_file, "r") as f:
             data = json.load(f)
     except FileNotFoundError:
         print(f"Error: File {theme_file} not found.")
+        sys.exit(1)
+
+    try:
+        dictionary_words = parse_dictionary(dict_file)
+        print(f"Loaded {len(dictionary_words)} words from dictionary.")
+    except FileNotFoundError:
+        print(f"Error: File {dict_file} not found.")
         sys.exit(1)
 
     words = data.get("theme-words", [])
@@ -383,55 +448,75 @@ def main():
     print(f"Words: {words} ({n_letters} letters)")
     print(f"Size: {width}x{height} ({width * height} cells)")
 
-    if n_letters > width * height:
-        print(f"Error: Not enough cells ({width * height}) for all words ({n_letters})")
+    if n_letters > width * height * 2:
+        print(
+            f"Error: Not enough cells ({width * height * 2}) for all words ({n_letters})"
+        )
         sys.exit(1)
 
     # Generate
-    # Retry loop if strict verification fails
-    max_retries = 100
+    # Retry loop to find the best grid
+    max_placement_retries = 100
+    max_fill_retries = 100
+    max_solves = 100
 
-    word_placement = None
-    for i in range(max_retries):
+    solves = 0
+    best_grid = None
+    best_score = -1
+    best_grid_strings = None
+
+    print(
+        f"Starting generation with {max_placement_retries} attempts to maximize findable words..."
+    )
+
+    for i in range(max_placement_retries):
+        if solves >= max_solves:
+            break
+
         generator = WordPlacer(width, height, words)
-        grid = generator.place_words()
+        grid_placement = generator.place_words()
 
-        print("testing:")
-        print_grid(grid)
-
-        if grid:
+        if grid_placement:
             # Verify that the grid with only the letters for the words is valid
-            verifier = Verifier(height, words, grid)
+            verifier = Verifier(height, words, grid_placement)
             if verifier.verify():
-                print(f"Success! Found word placement (Attempt {i + 1})")
-                word_placement = grid
-                break
-            else:
-                print(f"Verification failed on attempt {i + 1}. Retrying...")
-        else:
-            print(f"Generation failed on attempt {i + 1}.")
+                for j in range(max_fill_retries):
+                    # Try to fill the grid
+                    filler = GridFiller(grid_placement)
+                    full_grid = filler.fill_grid()
 
-    if word_placement is None:
-        print("Failed to place words in a valid grid after max retries.")
+                    # Verify the full grid
+                    verifier = Verifier(height, words, full_grid)
+                    if verifier.verify():
+                        grid_strings = convert_2Dgrid_to_list_of_strings(full_grid)
+                        found_words = solve_grid(grid_strings, dictionary_words)
+                        score = len(found_words)
+
+                        if score > best_score:
+                            best_score = score
+                            best_grid = full_grid
+                            best_grid_strings = grid_strings
+                            print(
+                                f"New best score: {score} words (Grid {i + 1}, Fill {j + 1}, Solve {solves + 1})"
+                            )
+
+                        solves += 1
+
+                        if solves >= max_solves:
+                            print(f"Max solves reached ({max_solves})")
+                            break
+
+    if best_grid_strings is None:
+        print("Failed to generate a valid grid after max retries.")
         sys.exit(1)
 
-    # Found word placement, now will try to fill grid
-    for i in range(max_retries):
-        filler = GridFiller(word_placement)
-        grid = filler.fill_grid()
-        verifier = Verifier(height, words, grid)
-        if verifier.verify():
-            print(f"Success! Found grid (Attempt {i + 1})")
+    print(f"Final Result: Selected grid with {best_score} findable words.")
 
-            data["grid"] = convert_2Dgrid_to_list_of_strings(grid)
-            with open(theme_file, "w") as f:
-                # Write pretty JSON
-                json.dump(data, f, indent=4)
-            sys.exit(0)
-        else:
-            print(f"Verification failed on attempt {i + 1}. Retrying...")
-    print("Failed to fill grid with words after max retries.")
-    sys.exit(1)
+    data["grid"] = best_grid_strings
+    with open(theme_file, "w") as f:
+        # Write pretty JSON
+        json.dump(data, f, indent=4)
+    sys.exit(0)
 
 
 if __name__ == "__main__":

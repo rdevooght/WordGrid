@@ -1,59 +1,74 @@
+import argparse
 import json
+import re
 
-def generate_dictionary():
-    categorized_words = {
-        'common': [],
-        'rare': [],
-        'shiny': [],
-        'legendary': []
-    }
-    
-    # Thresholds
-    LIMIT_COMMON = 2000
-    LIMIT_RARE = 5000
-    LIMIT_SHINY = 7000
+WORD_PATTERN = re.compile(r"^[a-zA-Z]{3,}$")
 
-    count_added = 0
 
-    try:
-        with open('data/google-10000-english-no-swears.txt', 'r') as f:
-            for line in f:
-                word = line.strip().lower()
-                
-                # Filter for length >= 4
-                if 3 < len(word) < 16:
-                    count_added += 1
-                    
-                    if count_added <= LIMIT_COMMON:
-                        categorized_words['common'].append(word)
-                    elif count_added <= LIMIT_RARE:
-                        categorized_words['rare'].append(word)
-                    elif count_added <= LIMIT_SHINY:
-                        categorized_words['shiny'].append(word)
+def get_words(files, min_frequency):
+    words = []
+
+    for file in files:
+        try:
+            with open(file, "r") as f:
+                for line in f:
+                    # remove frequency if in file
+                    if " " in line:
+                        word, freq = line.split()
+                        if int(freq) < min_frequency:
+                            continue
                     else:
-                        categorized_words['legendary'].append(word)
-                    
-    except FileNotFoundError:
-        print("Warning: google-10000-english-no-swears.txt not found")
-        return
+                        word = line
 
-    # Sort alphabetically within categories
-    for cat in categorized_words:
-        categorized_words[cat].sort()
+                    word = word.strip().lower()
 
-    total_words = sum(len(l) for l in categorized_words.values())
-    print(f"Total words: {total_words}")
-    
-    # Print stats
-    stats = {k: len(v) for k, v in categorized_words.items()}
-    print("Category breakdown:", stats)
+                    if WORD_PATTERN.match(word):
+                        words.append(word)
 
+        except FileNotFoundError:
+            print(f"Warning: {file} not found")
+            return
+
+    # Sort alphabetically
+    words.sort()
+
+    return words
+
+
+def save_to_js(filename, words):
     # Write JS file
-    js_content = f"const GAME_DICTIONARY = {json.dumps(categorized_words)};"
-    
-    with open('dictionary.js', 'w') as f:
-        f.write(js_content)
-    print("dictionary.js created")
+    js_content = f"const GAME_DICTIONARY = {json.dumps(words)};"
 
-if __name__ == '__main__':
-    generate_dictionary()
+    with open(filename, "w") as f:
+        f.write(js_content)
+    print(f"{filename} created")
+
+
+def save_to_txt(filename, words):
+    # Write TXT file
+    with open(filename, "w") as f:
+        for word in words:
+            f.write(word + "\n")
+    print(f"{filename} created")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Create a dictionary file")
+
+    parser.add_argument("--files", "-f", nargs="+", help="Files to read words from")
+    parser.add_argument(
+        "--output", "-o", default="dictionary.js", help="Output file name"
+    )
+    parser.add_argument(
+        "--min-frequency", type=int, default=100, help="Minimum frequency"
+    )
+
+    args = parser.parse_args()
+    words = get_words(args.files, args.min_frequency)
+
+    if args.output.endswith(".js"):
+        save_to_js(args.output, words)
+    elif args.output.endswith(".txt"):
+        save_to_txt(args.output, words)
+    else:
+        print(f"Unsupported output format: {args.output}")

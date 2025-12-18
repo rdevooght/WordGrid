@@ -36,25 +36,11 @@ def parse_theme(theme_path):
 
 
 def parse_dictionary(dict_path):
+    words = []
     with open(dict_path, "r") as f:
-        content = f.read()
-
-    # Remove "const GAME_DICTIONARY = " prefix and trailing ";"
-    prefix = "const GAME_DICTIONARY = "
-    if content.startswith(prefix):
-        content = content[len(prefix) :]
-
-    content = content.strip()
-    if content.endswith(";"):
-        content = content[:-1]
-
-    data = json.loads(content)
-
-    words = set()
-    for category in data.values():
-        for word in category:
-            words.add(word.lower())
-    return list(words)
+        for line in f:
+            words.append(line.strip())
+    return words
 
 
 def solve_grid(grid, words):
@@ -98,7 +84,7 @@ def solve_grid(grid, words):
 def main():
     parser = argparse.ArgumentParser(description="Count findable words in a grid.")
     parser.add_argument("--theme", required=True, help="Path to the theme JSON file")
-    parser.add_argument("--dict", required=True, help="Path to the dictionary JS file")
+    parser.add_argument("--dict", required=True, help="Path to the dictionary file")
 
     args = parser.parse_args()
 
