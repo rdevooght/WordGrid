@@ -1,6 +1,5 @@
 import argparse
 import re
-import sys
 
 import numpy as np
 
@@ -18,7 +17,11 @@ def generate_letter_frequency(files, weight_by_frequency=False):
         try:
             with open(file, "r") as f:
                 for line in f:
-                    word, frequency = line.split(" ")
+                    if " " in line:
+                        word, frequency = line.split(" ")
+                    else:
+                        word = line.strip()
+                        frequency = 1
                     if not WORD_PATTERN.match(word):
                         continue
                     word = word.upper()
@@ -47,7 +50,11 @@ def generate_matrix(files, weight_by_frequency=False):
         try:
             with open(file, "r") as f:
                 for line in f:
-                    word, frequency = line.split(" ")
+                    if " " in line:
+                        word, frequency = line.split(" ")
+                    else:
+                        word = line.strip()
+                        frequency = 1
                     if not WORD_PATTERN.match(word):
                         continue
                     word = word.upper()
@@ -73,9 +80,11 @@ def generate_matrix(files, weight_by_frequency=False):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Count findable words in a grid.")
-    parser.add_argument("--words", required=True, nargs="+", help="Path to word files")
     parser.add_argument(
-        "--out_dir", required=False, default=".", help="output directory"
+        "--words", "-w", required=True, nargs="+", help="Path to word files"
+    )
+    parser.add_argument(
+        "--out_dir", "-o", required=False, default=".", help="output directory"
     )
     parser.add_argument(
         "--weight_by_frequency",

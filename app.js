@@ -1,3 +1,9 @@
+const POINTS_SYSTEM = {
+  1: { category: "rare", multiplier: 2, isThemeWord: false },
+  2: { category: "common", multiplier: 1, isThemeWord: false },
+  theme: { category: "theme-word", multiplier: 2, isThemeWord: true },
+};
+
 function game() {
   return {
     grid: [],
@@ -384,35 +390,38 @@ function game() {
       return Math.abs(x1 - x2) <= 1 && Math.abs(y1 - y2) <= 1;
     },
 
+    /*
+     Returns false if
+     - the word is not found in the dictionnary,
+     - or the word is already found
+     - or the dictionary is not loaded
+     otherwise returns the value of the word in the dictionary
+    */
     checkWord(word) {
       if (word.length < 3) return false;
       // Check if already found (in either list)
       if (this.validWordsHistory.some((h) => h.word === word)) return false;
       if (this.foundThemeWords.includes(word)) return false;
 
-      // Check theme words first
-      if (this.gameMode === "theme" && this.themeWords.includes(word)) {
-        return true;
-      }
       if (!this.dictionary) this.processDictionary();
-      return (
-        this.dictionary &&
-        Object.prototype.hasOwnProperty.call(this.dictionary, word)
-      );
+
+      if (!this.dictionary) return false;
+      const value = this.dictionary[word];
+      if (!value) return false;
+      else return value;
     },
 
     processDictionary() {
       if (this.dictionary) return;
       if (typeof GAME_DICTIONARY === "undefined") return;
 
-      // Handle new format: { 'common': [...], 'rare': [...], ... }
-      this.dictionary = {};
-      for (const category in GAME_DICTIONARY) {
-        if (Array.isArray(GAME_DICTIONARY[category])) {
-          for (const w of GAME_DICTIONARY[category]) {
-            this.dictionary[w] = category;
-          }
-        }
+      this.dictionary = GAME_DICTIONARY;
+
+      // Add theme words
+      if (this.gameMode === "theme") {
+        this.themeWords.forEach((word) => {
+          this.dictionary[word] = "theme";
+        });
       }
     },
 
@@ -420,74 +429,55 @@ function game() {
       const word = this.currentWord;
       const indices = [...this.selectedIndices]; // Copy before clearing
 
-      if (this.checkWord(word)) {
-        let category = "common";
-        if (
-          this.dictionary &&
-          Object.prototype.hasOwnProperty.call(this.dictionary, word)
-        ) {
-          category = this.dictionary[word];
-        }
+      const value = this.checkWord(word);
 
-        // Theme Logic Check
-        let isThemeWord = false;
-        if (this.gameMode === "theme" && this.themeWords.includes(word)) {
-          isThemeWord = true;
-          category = "legendary"; // Theme words are legendary!
-        }
-
-        this.processValidWord(word, category, isThemeWord, indices);
-      } else {
-        // Invalid - just clear
+      if (value) {
+        this.processValidWord(word, value, indices);
       }
       this.selectedIndices = [];
       this.currentWord = "";
     },
 
-    processValidWord(word, category, isThemeWord, indices) {
+    processValidWord(word, value, indices) {
       // Calculate Score
-      let points = word.length;
 
-      // Multiplier by category
-      if (category === "rare") points *= 2;
-      if (category === "shiny") points *= 3;
-      if (category === "legendary") points *= 5;
+      const effects = POINTS_SYSTEM[value];
+
+      let points = word.length * effects.multiplier;
 
       this.score += points;
-      this.lastWordCategory = category;
+      this.lastWordCategory = effects.category;
 
       // Add mana based on points (capped at maxMana)
-      const manaGain = Math.floor(points / 10);
-      this.mana = Math.min(this.maxMana, this.mana + manaGain);
+      this.mana = Math.min(this.maxMana, this.mana + points);
 
       // Add to history if not a theme word
-      if (!isThemeWord) {
+      if (!effects.isThemeWord) {
         this.validWordsHistory.push({
           word: word,
-          category: category,
+          category: effects.category,
         });
+
+        if (this.gameMode !== "theme" || this.themeWords.length === 0) {
+          this.lastFoundWordIndices = indices;
+          this.lastFoundWord = word;
+        }
       }
 
       // Handle theme mode behavior
-      if (this.gameMode === "theme") {
-        if (isThemeWord) {
-          // Theme words are auto-destroyed
-          const idx = this.themeWords.indexOf(word);
-          if (idx > -1) this.themeWords.splice(idx, 1);
-          this.foundThemeWords.push(word);
+      if (this.gameMode === "theme" && effects.isThemeWord) {
+        // Theme words are auto-destroyed
+        const idx = this.themeWords.indexOf(word);
+        if (idx > -1) this.themeWords.splice(idx, 1);
+        this.foundThemeWords.push(word);
 
-          // Use passed indices for destruction
-          this.selectedIndices = indices;
-          this.destroySelected();
-          this.selectedIndices = [];
+        // Use passed indices for destruction
+        this.selectedIndices = indices;
+        this.destroySelected();
+        this.selectedIndices = [];
 
-          if (this.themeWords.length === 0) {
-            this.handleThemeWin();
-          }
-        } else {
-          // Non-theme word: keep highlighted for manual destruct
-          this.lastFoundWordIndices = indices;
-          this.lastFoundWord = word;
+        if (this.themeWords.length === 0) {
+          this.handleThemeWin();
         }
       }
 
@@ -498,7 +488,9 @@ function game() {
     },
 
     handleThemeWin() {
-      this.triggerToast("Theme Completed! 🌿");
+      const winBonus = 25;
+      this.score += winBonus;
+      this.triggerToast(`Theme Completed! +${winBonus} points`);
     },
 
     triggerToast(message) {

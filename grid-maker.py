@@ -461,7 +461,6 @@ def main():
     max_solves = 100
 
     solves = 0
-    best_grid = None
     best_score = -1
     best_grid_strings = None
 
@@ -494,7 +493,6 @@ def main():
 
                         if score > best_score:
                             best_score = score
-                            best_grid = full_grid
                             best_grid_strings = grid_strings
                             print(
                                 f"New best score: {score} words (Grid {i + 1}, Fill {j + 1}, Solve {solves + 1})"
