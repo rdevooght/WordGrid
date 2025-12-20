@@ -98,6 +98,11 @@ function game() {
     activeAbility: null, // null, 'bomb', 'swap'
     swapFirstIndex: null, // For swap: stores first clicked cell
 
+
+    // Tap Selection State
+    currentGestureIndices: [], // Track indices visited in current gesture
+    isPotentialSubmit: false, // Flag if gesture started on last selected cell
+
     // Hint highlighting
     hintHighlightIndices: [], // Cells highlighted by hint ability
 
@@ -246,8 +251,9 @@ function game() {
     handleTouchMove(e) {
       this.handleInputMove(e.touches[0].clientX, e.touches[0].clientY);
     },
-    handleTouchEnd() {
-      this.submitWord();
+    handleTouchEnd(e) {
+      if (e.cancelable) e.preventDefault(); // Good practice to prevent mouse compat events if handled
+      this.handleInputEnd();
     },
     handleMouseDown(e) {
       this.isDragging = true;
@@ -262,7 +268,7 @@ function game() {
     handleMouseUp() {
       if (this.isDragging) {
         this.isDragging = false;
-        this.submitWord();
+        this.handleInputEnd();
       }
     },
 
@@ -286,16 +292,54 @@ function game() {
         }
       }
 
-      // Clear hint highlights when starting new selection
-      this.hintHighlightIndices = [];
+      const index = this.getTileIndexAt(x, y);
 
-      // Clear previous word highlight when starting new selection
-      this.lastFoundWordIndices = [];
-      this.lastFoundWord = "";
+      // Initialize gesture tracking
+      this.currentGestureIndices = [];
+      this.isPotentialSubmit = false;
 
-      this.selectedIndices = [];
-      this.currentWord = "";
-      this.lastWordCategory = "";
+      if (index !== -1) {
+        this.currentGestureIndices.push(index);
+
+        // DECISION LOGIC: Should we keep existing selection or start new?
+        let keepSelection = false;
+
+        if (this.selectedIndices.length > 0) {
+          const lastIndex = this.selectedIndices[this.selectedIndices.length - 1];
+
+          // Case A: Tapped on last selected cell (Potential Submit)
+          if (index === lastIndex) {
+            keepSelection = true;
+            this.isPotentialSubmit = true;
+          }
+          // Case B: Tapped on neighbor (Continue Path)
+          else if (this.isNeighbor(lastIndex, index) && !this.selectedIndices.includes(index)) {
+            keepSelection = true;
+          }
+          // Case C: Tapped on previous cell (Backtrack)
+          else if (this.selectedIndices.length > 1 && index === this.selectedIndices[this.selectedIndices.length - 2]) {
+            keepSelection = true;
+          }
+        }
+
+        if (!keepSelection) {
+          // Reset selection if starting fresh or disjoint click
+          this.selectedIndices = [];
+          this.currentWord = "";
+          this.lastWordCategory = "";
+
+          // Clear hint highlights when starting new selection
+          this.hintHighlightIndices = [];
+          // Clear previous word highlight when starting new selection
+          this.lastFoundWordIndices = [];
+          this.lastFoundWord = "";
+        }
+      } else {
+        // Clicked outside - clear everything
+        this.selectedIndices = [];
+        this.currentWord = "";
+      }
+
       this.detectCell(x, y);
     },
 
@@ -374,6 +418,11 @@ function game() {
 
       const index = bestIndex; // Found a hit
 
+      // Track unique cells visited in this gesture
+      if (!this.currentGestureIndices.includes(index)) {
+        this.currentGestureIndices.push(index);
+      }
+
       // Logic for selection
       // 1. If empty selection, add it
       if (this.selectedIndices.length === 0) {
@@ -402,6 +451,29 @@ function game() {
 
       // Haptic feedback if available
       if (navigator.vibrate) navigator.vibrate(10);
+    },
+
+    handleInputEnd() {
+      if (this.gameOver) return;
+
+      // Logic to decide whether to submit or keep selection
+
+      // 1. If we dragged over multiple cells in this gesture -> Submit
+      if (this.currentGestureIndices.length > 1) {
+        this.submitWord();
+      }
+      // 2. If we tapped the last selected cell (Confirmation) -> Submit
+      else if (this.isPotentialSubmit && this.currentGestureIndices.length === 1) {
+        this.submitWord();
+      }
+      // 3. Otherwise (Single tap on new cell, neighbor, or backtrack) -> Keep Selection
+      else {
+        // Do nothing, let the selection persist
+      }
+
+      // Reset gesture tracking
+      this.currentGestureIndices = [];
+      this.isPotentialSubmit = false;
     },
 
     updateCurrentWord() {
