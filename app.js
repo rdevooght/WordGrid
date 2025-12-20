@@ -1,4 +1,3 @@
-
 const POINTS_SYSTEM = {
   1: { category: "rare", multiplier: 2, isThemeWord: false },
   2: { category: "common", multiplier: 1, isThemeWord: false },
@@ -82,7 +81,6 @@ function game() {
     dictionary: null, // Optimization: Map word -> category
     prefixes: null, // Set of valid 2-3 letter prefixes
 
-
     // Destruct Button State
     lastFoundWordIndices: [], // Indices of the last valid word (for highlighting)
     lastFoundWord: "", // The actual word string
@@ -99,7 +97,6 @@ function game() {
     // Ability Mode (for bomb/swap that require clicks)
     activeAbility: null, // null, 'bomb', 'swap'
     swapFirstIndex: null, // For swap: stores first clicked cell
-
 
     // Tap Selection State
     currentGestureIndices: [], // Track indices visited in current gesture
@@ -277,6 +274,11 @@ function game() {
     handleInputStart(x, y) {
       if (this.gameOver) return;
 
+      if (!this.gameStarted) {
+        this.startGame();
+        return;
+      }
+
       // Recalculate physical positions of tiles
       this.calculateTileBounds();
 
@@ -307,7 +309,8 @@ function game() {
         let keepSelection = false;
 
         if (this.selectedIndices.length > 0) {
-          const lastIndex = this.selectedIndices[this.selectedIndices.length - 1];
+          const lastIndex =
+            this.selectedIndices[this.selectedIndices.length - 1];
 
           // Case A: Tapped on last selected cell (Potential Submit)
           if (index === lastIndex) {
@@ -315,11 +318,17 @@ function game() {
             this.isPotentialSubmit = true;
           }
           // Case B: Tapped on neighbor (Continue Path)
-          else if (this.isNeighbor(lastIndex, index) && !this.selectedIndices.includes(index)) {
+          else if (
+            this.isNeighbor(lastIndex, index) &&
+            !this.selectedIndices.includes(index)
+          ) {
             keepSelection = true;
           }
           // Case C: Tapped on previous cell (Backtrack)
-          else if (this.selectedIndices.length > 1 && index === this.selectedIndices[this.selectedIndices.length - 2]) {
+          else if (
+            this.selectedIndices.length > 1 &&
+            index === this.selectedIndices[this.selectedIndices.length - 2]
+          ) {
             keepSelection = true;
           }
         }
@@ -465,7 +474,10 @@ function game() {
         this.submitWord();
       }
       // 2. If we tapped the last selected cell (Confirmation) -> Submit
-      else if (this.isPotentialSubmit && this.currentGestureIndices.length === 1) {
+      else if (
+        this.isPotentialSubmit &&
+        this.currentGestureIndices.length === 1
+      ) {
         this.submitWord();
       }
       // 3. Otherwise (Single tap on new cell, neighbor, or backtrack) -> Keep Selection
@@ -660,7 +672,11 @@ function game() {
       if (this.themeWords.length > 0) {
         // Linear search for theme words (order doesn't matter much as they are specific targets)
         const maxSearchDepth = this.themeWords[0].length;
-        const result = this.findAllFindableWords("theme", false, maxSearchDepth);
+        const result = this.findAllFindableWords(
+          "theme",
+          false,
+          maxSearchDepth,
+        );
         if (result) return result;
       }
 
@@ -688,9 +704,18 @@ function game() {
 
         // Start DFS
         // We look for words of length 3+
-        const path = this.dfsFindWord(i, [i], this.grid[i].letter, targetType, maxSearchDepth);
+        const path = this.dfsFindWord(
+          i,
+          [i],
+          this.grid[i].letter,
+          targetType,
+          maxSearchDepth,
+        );
         if (path) {
-          const word = path.map(idx => this.grid[idx].letter).join("").toLowerCase();
+          const word = path
+            .map((idx) => this.grid[idx].letter)
+            .join("")
+            .toLowerCase();
           return { word, path };
         }
       }
@@ -700,7 +725,10 @@ function game() {
     dfsFindWord(idx, visited, currentStr, targetType, maxSearchDepth = 10) {
       // Pruning: Check prefixes at EVERY step
       // We only check if length >= 2 because 1 letter "prefixes" are just letters on the grid
-      if (currentStr.length >= 2 && !this.prefixes.has(currentStr.toLowerCase())) {
+      if (
+        currentStr.length >= 2 &&
+        !this.prefixes.has(currentStr.toLowerCase())
+      ) {
         return null;
       }
 
@@ -719,7 +747,7 @@ function game() {
 
       const neighbors = this.getNeighbors(idx);
       // Randomize neighbors to get Variety in hints (optional)
-      // neighbors.sort(() => Math.random() - 0.5); 
+      // neighbors.sort(() => Math.random() - 0.5);
       for (const nIdx of neighbors) {
         if (!visited.includes(nIdx) && this.grid[nIdx].status !== "removed") {
           const result = this.dfsFindWord(
@@ -727,7 +755,7 @@ function game() {
             [...visited, nIdx],
             currentStr + this.grid[nIdx].letter,
             targetType,
-            maxSearchDepth
+            maxSearchDepth,
           );
           if (result) return result;
         }
@@ -754,7 +782,7 @@ function game() {
     },
 
     // Old method for reference (Removed for optimization)
-    // findPathForWord(word) { ... } 
+    // findPathForWord(word) { ... }
     // dfsPath(...) { ... }
 
     // Small Hint: highlight first letter of a findable word

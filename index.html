@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Word Rush</title>
+    <title>Word Grid</title>
     <!-- Alpine.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="stylesheet" href="style.css" />
@@ -46,7 +46,7 @@
                                     <span class="value" x-text="formatTime(timeLeft)"></span>
                                 </div>
 
-                                <button class="start-btn pulse-animation" @click="startGame()">
+                                <button class="start-btn pulse-animation">
                                     Click/tap to start !
                                 </button>
                             </div>
@@ -95,10 +95,10 @@
                         <!-- Ability Buttons Row -->
                         <div class="ability-buttons">
                             <template x-for="ability in abilitiesList" :key="ability.id">
-                                <button class="ability-btn" :class="{ 
+                                <button class="ability-btn" :class="{
                                         [ability.id]: true,
-                                        'enabled': $data[ability.condition], 
-                                        'active': ability.activeMode && activeAbility === ability.activeMode 
+                                        'enabled': $data[ability.condition],
+                                        'active': ability.activeMode && activeAbility === ability.activeMode
                                     }" :disabled="!$data[ability.condition]" @click="$data[ability.action]()"
                                     :title="ability.name">
                                     <span class="btn-icon" x-text="ability.icon"></span>
