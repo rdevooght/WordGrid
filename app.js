@@ -80,6 +80,8 @@ function game() {
     totalThemeWords: 0,
     columnRefillIndices: [], // Track current 'top' row for each column in theme
     dictionary: null, // Optimization: Map word -> category
+    prefixes: null, // Set of valid 2-3 letter prefixes
+
 
     // Destruct Button State
     lastFoundWordIndices: [], // Indices of the last valid word (for highlighting)
@@ -539,6 +541,7 @@ function game() {
       if (typeof GAME_DICTIONARY === "undefined") return;
 
       this.dictionary = GAME_DICTIONARY;
+      this.prefixes = new Set();
 
       // Add theme words
       if (this.gameMode === "theme") {
@@ -546,6 +549,15 @@ function game() {
           this.dictionary[word] = "theme";
         });
       }
+
+      // Pre-compute prefixes for optimization (ALL lengths)
+      Object.keys(this.dictionary).forEach((word) => {
+        // Optimization: Only store prefixes for words that could fit in our max search depth (e.g. 10)
+        // But storing all is safer and not too expensive for standard English dict.
+        for (let i = 2; i <= word.length; i++) {
+          this.prefixes.add(word.substring(0, i));
+        }
+      });
     },
 
     submitWord() {
@@ -642,63 +654,108 @@ function game() {
 
     // Find a path in the grid that spells a valid word
     findWordInGrid() {
-      // Try theme words first (unfound ones), then dictionary words
-      const wordsToTry = [
-        ...this.themeWords,
-        ...Object.keys(this.dictionary || {}).filter(
-          (w) =>
-            !this.validWordsHistory.some((h) => h.word === w) &&
-            !this.foundThemeWords.includes(w),
-        ),
-      ];
-
-      for (const word of wordsToTry) {
-        const path = this.findPathForWord(word);
-        if (path) return { word, path };
+      console.log("Finding word in grid...");
+      console.log(this.themeWords);
+      // Phase 1: Look for THEME words
+      if (this.themeWords.length > 0) {
+        // Linear search for theme words (order doesn't matter much as they are specific targets)
+        const maxSearchDepth = this.themeWords[0].length;
+        const result = this.findAllFindableWords("theme", false, maxSearchDepth);
+        if (result) return result;
       }
-      return null;
+
+      // Phase 2: Look for COMMON words (value 2)
+      // Randomized search to avoid top-left bias
+      return this.findAllFindableWords(2, true);
     },
 
-    findPathForWord(word) {
-      // DFS from each cell that matches first letter
-      const letters = word.toUpperCase().split("");
-      for (let startIdx = 0; startIdx < this.grid.length; startIdx++) {
-        if (
-          this.grid[startIdx].letter === letters[0] &&
-          this.grid[startIdx].status !== "removed"
-        ) {
-          const path = this.dfsPath(startIdx, letters, 0, []);
-          if (path) return path;
+    findAllFindableWords(targetType, randomize, maxSearchDepth = 10) {
+      // Create indices array
+      let indices = [];
+      for (let i = 0; i < this.grid.length; i++) indices.push(i);
+
+      if (randomize) {
+        // Fisher-Yates Shuffle
+        for (let i = indices.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [indices[i], indices[j]] = [indices[j], indices[i]];
+        }
+      }
+
+      // Check every cell in (possibly randomized) order
+      for (const i of indices) {
+        if (this.grid[i].status === "removed") continue;
+
+        // Start DFS
+        // We look for words of length 3+
+        const path = this.dfsFindWord(i, [i], this.grid[i].letter, targetType, maxSearchDepth);
+        if (path) {
+          const word = path.map(idx => this.grid[idx].letter).join("").toLowerCase();
+          return { word, path };
         }
       }
       return null;
     },
 
-    dfsPath(index, letters, letterIdx, visited) {
-      // Base cases
-      if (visited.includes(index)) return null;
-      if (this.grid[index].status === "removed") return null;
-      if (this.grid[index].letter !== letters[letterIdx]) return null;
+    dfsFindWord(idx, visited, currentStr, targetType, maxSearchDepth = 10) {
+      // Pruning: Check prefixes at EVERY step
+      // We only check if length >= 2 because 1 letter "prefixes" are just letters on the grid
+      if (currentStr.length >= 2 && !this.prefixes.has(currentStr.toLowerCase())) {
+        return null;
+      }
 
-      const newVisited = [...visited, index];
+      // Check if currentStr is a valid word (min length 3)
+      if (currentStr.length >= 3) {
+        const lowerWord = currentStr.toLowerCase();
+        // Valid word found?
+        const value = this.checkWord(lowerWord);
+        if (value && value === targetType) {
+          return visited;
+        }
+      }
 
-      // Found complete word
-      if (letterIdx === letters.length - 1) return newVisited;
+      // Limit max depth to avoid infinite searches (e.g. 10 chars is usually enough for hints)
+      if (currentStr.length >= maxSearchDepth) return null;
 
-      // Try all neighbors
-      for (let neighbor = 0; neighbor < this.grid.length; neighbor++) {
-        if (this.isNeighbor(index, neighbor)) {
-          const result = this.dfsPath(
-            neighbor,
-            letters,
-            letterIdx + 1,
-            newVisited,
+      const neighbors = this.getNeighbors(idx);
+      // Randomize neighbors to get Variety in hints (optional)
+      // neighbors.sort(() => Math.random() - 0.5); 
+      for (const nIdx of neighbors) {
+        if (!visited.includes(nIdx) && this.grid[nIdx].status !== "removed") {
+          const result = this.dfsFindWord(
+            nIdx,
+            [...visited, nIdx],
+            currentStr + this.grid[nIdx].letter,
+            targetType,
+            maxSearchDepth
           );
           if (result) return result;
         }
       }
       return null;
     },
+
+    getNeighbors(index) {
+      const neighbors = [];
+      const x = index % this.width;
+      const y = Math.floor(index / this.width);
+
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx >= 0 && nx < this.width && ny >= 0 && ny < this.height) {
+            neighbors.push(ny * this.width + nx);
+          }
+        }
+      }
+      return neighbors;
+    },
+
+    // Old method for reference (Removed for optimization)
+    // findPathForWord(word) { ... } 
+    // dfsPath(...) { ... }
 
     // Small Hint: highlight first letter of a findable word
     useSmallHint() {
