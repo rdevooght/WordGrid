@@ -34,6 +34,42 @@
                         @touchmove.prevent="handleTouchMove" @touchend.prevent="handleTouchEnd"
                         @mousedown.prevent="handleMouseDown" @mousemove.prevent="handleMouseMove"
                         @mouseup.prevent="handleMouseUp" @mouseleave="handleMouseUp">
+                        <!-- Start Screen Overlay -->
+                        <div class="overlay start-overlay" x-show="!gameStarted && !gameOver" x-transition.opacity>
+                            <div class="overlay-content">
+                                <h2 class="overlay-title">Today's Theme</h2>
+                                <h1 class="theme-name" x-text="themeName"></h1>
+                                <p class="theme-info" x-text="`(${totalThemeWords} words)`"></p>
+
+                                <div class="time-info">
+                                    <span class="label">Available time</span>
+                                    <span class="value" x-text="formatTime(timeLeft)"></span>
+                                </div>
+
+                                <button class="start-btn pulse-animation" @click="startGame()">
+                                    Click/tap to start !
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- End Screen Overlay (Scoped to Grid) -->
+                        <div class="overlay end-overlay" x-show="gameOver" style="display: none" x-transition.opacity>
+                            <div class="overlay-content">
+                                <h2 class="overlay-title">Time's Up!</h2>
+
+                                <div class="results-box">
+                                    <p>You found <span class="highlight" x-text="foundThemeWords.length"></span> of the
+                                        <span x-text="totalThemeWords"></span> theme words
+                                    </p>
+                                    <p>You found <span class="highlight" x-text="validWordsHistory.length"></span> extra
+                                        words</p>
+                                    <p class="score-line">Score: <span class="score-val" x-text="score"></span></p>
+                                </div>
+
+                                <p class="come-back-msg">Come back tomorrow for another grid !</p>
+                            </div>
+                        </div>
+
                         <svg class="path-overlay" :viewBox="`0 0 ${pathViewBox.width} ${pathViewBox.height}`">
                             <polyline class="selection-path" :points="getPathPoints()" fill="none" />
                         </svg>
@@ -73,7 +109,7 @@
                             <button class="ability-btn bomb"
                                 :class="{ 'enabled': canBomb, 'active': activeAbility === 'bomb' }" :disabled="!canBomb"
                                 @click="activateBomb()" title="Bomb">
-                                <span class="btn-icon">�</span>
+                                <span class="btn-icon">💣</span>
                                 <span class="btn-cost">5</span>
                             </button>
 
@@ -105,7 +141,18 @@
                             <template x-for="word in foundThemeWords" :key="word">
                                 <span class="found-word-tag legendary" x-text="word"></span>
                             </template>
-                            <div x-show="foundThemeWords.length === 0" class="empty-state">
+
+                            <!-- Missing Theme Words Header -->
+                            <div x-show="missingThemeWords.length > 0" class="missing-header">
+                                You missed:
+                            </div>
+
+                            <!-- Missing Theme Words (Only shown when Game Over) -->
+                            <template x-for="word in missingThemeWords" :key="word">
+                                <span class="found-word-tag missing" x-text="word"></span>
+                            </template>
+
+                            <div x-show="foundThemeWords.length === 0 && !gameOver" class="empty-state">
                                 Find theme words!
                             </div>
                         </div>
@@ -124,22 +171,6 @@
             </div>
         </div>
 
-        <!-- Game Over Modal -->
-        <div x-show="gameOver" style="display: none" class="modal-overlay" x-transition.opacity>
-            <div class="modal-content">
-                <h1 class="modal-title">Time's Up!</h1>
-                <p class="modal-score">
-                    Final Score:
-                    <span class="final-score" x-text="score"></span>
-                </p>
-
-                <div class="modal-actions">
-                    <button @click="restartGame()" class="action-btn restart-gradient">
-                        Play Again
-                    </button>
-                </div>
-            </div>
-        </div>
 
         <!-- Toast Notification -->
         <div class="toast-notification" :class="{ 'show': showToast }" x-text="toastMessage"></div>

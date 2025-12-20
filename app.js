@@ -3,6 +3,11 @@ function game() {
     grid: [],
     width: 6,
     height: 8, // 6x8 grid
+    get themeName() {
+      return typeof DEFAULT_THEME !== "undefined"
+        ? DEFAULT_THEME.name
+        : "Unknown Theme";
+    },
     letters:
       "EEEEEEEEEEEEAAAAAAAAAIIIIIIIIIOOOOOOOONNNNNNRRRRRRTTTTTTLLLLSSSSUUUDDDDGGGGBBCCMMPPFFHHVVWWYYKJXQZ",
     selectedIndices: [],
@@ -11,6 +16,7 @@ function game() {
     timeLeft: 180, // 3 minutes
     timer: null,
     gameMode: "theme",
+    gameStarted: false,
     gameOver: false,
     validWordsHistory: [],
     lastWordCategory: "",
@@ -71,6 +77,12 @@ function game() {
       return this.allThemeWordsFound && this.mana >= 5;
     },
 
+    // Computed for missing theme words
+    get missingThemeWords() {
+      if (!this.gameOver || this.gameMode !== "theme") return [];
+      return this.themeWords; // themeWords only contains unfound ones as we splice them out
+    },
+
     initGame() {
       if (this.gameMode === "theme") {
         if (typeof DEFAULT_THEME !== "undefined") {
@@ -84,6 +96,14 @@ function game() {
       this.validWordsHistory = [];
       this.processDictionary();
       this.generateGrid();
+      // Timer not started automatically anymore
+      this.gameStarted = false;
+      this.gameOver = false;
+      this.score = 0;
+    },
+
+    startGame() {
+      this.gameStarted = true;
       this.startTimer();
     },
 
@@ -727,7 +747,6 @@ function game() {
 
     startTimer() {
       if (this.timer) clearInterval(this.timer);
-      this.timeLeft = 180;
       this.gameOver = false;
       this.score = 0;
 
