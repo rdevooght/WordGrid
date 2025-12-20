@@ -1,8 +1,54 @@
+
 const POINTS_SYSTEM = {
   1: { category: "rare", multiplier: 2, isThemeWord: false },
   2: { category: "common", multiplier: 1, isThemeWord: false },
   theme: { category: "theme-word", multiplier: 2, isThemeWord: true },
 };
+
+const ABILITIES_CONFIG = [
+  {
+    id: "small-hint",
+    name: "Small Hint",
+    icon: "💡",
+    cost: 5,
+    action: "useSmallHint",
+    condition: "canSmallHint",
+  },
+  {
+    id: "big-hint",
+    name: "Big Hint",
+    icon: "✨",
+    cost: 10,
+    action: "useBigHint",
+    condition: "canBigHint",
+  },
+  {
+    id: "bomb",
+    name: "Bomb",
+    icon: "💣",
+    cost: 5,
+    action: "activateBomb",
+    condition: "canBomb",
+    activeMode: "bomb",
+  },
+  {
+    id: "swap",
+    name: "Swap",
+    icon: "🔄",
+    cost: 5,
+    action: "activateSwap",
+    condition: "canSwap",
+    activeMode: "swap",
+  },
+  {
+    id: "destruct",
+    name: "Destruct",
+    icon: "💥",
+    cost: 0,
+    action: "destructLastWord",
+    condition: "canDestruct",
+  },
+];
 
 function game() {
   return {
@@ -42,6 +88,11 @@ function game() {
     // Mana System
     mana: 0,
     maxMana: 30,
+
+    // Abilities Configuration
+    get abilitiesList() {
+      return ABILITIES_CONFIG;
+    },
 
     // Ability Mode (for bomb/swap that require clicks)
     activeAbility: null, // null, 'bomb', 'swap'

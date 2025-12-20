@@ -94,36 +94,17 @@
 
                         <!-- Ability Buttons Row -->
                         <div class="ability-buttons">
-                            <button class="ability-btn small-hint" :class="{ 'enabled': canSmallHint }"
-                                :disabled="!canSmallHint" @click="useSmallHint()" title="Small Hint">
-                                <span class="btn-icon">💡</span>
-                                <span class="btn-cost">2</span>
-                            </button>
-
-                            <button class="ability-btn big-hint" :class="{ 'enabled': canBigHint }"
-                                :disabled="!canBigHint" @click="useBigHint()" title="Big Hint">
-                                <span class="btn-icon">✨</span>
-                                <span class="btn-cost">5</span>
-                            </button>
-
-                            <button class="ability-btn bomb"
-                                :class="{ 'enabled': canBomb, 'active': activeAbility === 'bomb' }" :disabled="!canBomb"
-                                @click="activateBomb()" title="Bomb">
-                                <span class="btn-icon">💣</span>
-                                <span class="btn-cost">5</span>
-                            </button>
-
-                            <button class="ability-btn swap"
-                                :class="{ 'enabled': canSwap, 'active': activeAbility === 'swap' }" :disabled="!canSwap"
-                                @click="activateSwap()" title="Swap">
-                                <span class="btn-icon">🔄</span>
-                                <span class="btn-cost">5</span>
-                            </button>
-
-                            <button class="ability-btn destruct" :class="{ 'enabled': canDestruct }"
-                                :disabled="!canDestruct" @click="destructLastWord()" title="Destruct">
-                                <span class="btn-icon">💥</span>
-                            </button>
+                            <template x-for="ability in abilitiesList" :key="ability.id">
+                                <button class="ability-btn" :class="{ 
+                                        [ability.id]: true,
+                                        'enabled': $data[ability.condition], 
+                                        'active': ability.activeMode && activeAbility === ability.activeMode 
+                                    }" :disabled="!$data[ability.condition]" @click="$data[ability.action]()"
+                                    :title="ability.name">
+                                    <span class="btn-icon" x-text="ability.icon"></span>
+                                    <span class="btn-cost" x-show="ability.cost > 0" x-text="ability.cost"></span>
+                                </button>
+                            </template>
                         </div>
                     </div>
                 </div>
