@@ -51,13 +51,12 @@ const ABILITIES_CONFIG = [
 
 function game() {
   return {
+    dailyTheme: null,
     grid: [],
     width: 6,
-    height: 8, // 6x8 grid
+    height: 8,
     get themeName() {
-      return typeof DEFAULT_THEME !== "undefined"
-        ? DEFAULT_THEME.name
-        : "Unknown Theme";
+      return this.dailyTheme ? this.dailyTheme.name : "Random Grid";
     },
     letters:
       "EEEEEEEEEEEEAAAAAAAAAIIIIIIIIIOOOOOOOONNNNNNRRRRRRTTTTTTLLLLSSSSUUUDDDDGGGGBBCCMMPPFFHHVVWWYYKJXQZ",
@@ -144,14 +143,21 @@ function game() {
       return this.themeWords; // themeWords only contains unfound ones as we splice them out
     },
 
-    initGame() {
+    async initGame() {
+      await this.loadDailyTheme();
+
       if (this.gameMode === "theme") {
-        if (typeof DEFAULT_THEME !== "undefined") {
-          this.width = DEFAULT_THEME["grid-size"][0];
-          this.height = DEFAULT_THEME["grid-size"][1];
-          this.themeWords = [...DEFAULT_THEME["theme-words"]];
+        if (this.dailyTheme) {
+          this.width = this.dailyTheme["grid-size"][0];
+          this.height = this.dailyTheme["grid-size"][1];
+          this.themeWords = [...this.dailyTheme["theme-words"]];
           this.totalThemeWords = this.themeWords.length;
           this.foundThemeWords = [];
+        } else {
+          // Fallback to random grid if no theme available
+          this.gameMode = "random";
+          this.width = 6;
+          this.height = 8;
         }
       }
       this.validWordsHistory = [];
@@ -171,9 +177,9 @@ function game() {
     generateGrid() {
       this.grid = [];
 
-      if (this.gameMode === "theme" && typeof DEFAULT_THEME !== "undefined") {
+      if (this.gameMode === "theme" && this.dailyTheme) {
         // Load from Theme
-        const themeGrid = DEFAULT_THEME.grid; // Array of strings "ABCDE"
+        const themeGrid = this.dailyTheme.grid; // Array of strings "ABCDE"
         const totalRows = themeGrid.length;
         const startRow = Math.max(0, totalRows - this.height);
 
@@ -556,7 +562,7 @@ function game() {
       this.prefixes = new Set();
 
       // Add theme words
-      if (this.gameMode === "theme") {
+      if (this.gameMode === "theme" && this.dailyTheme) {
         this.themeWords.forEach((word) => {
           this.dictionary[word] = "theme";
         });
@@ -904,10 +910,11 @@ function game() {
             const themeRowIdx = this.columnRefillIndices[x];
             // Get letter from theme
             if (
-              DEFAULT_THEME.grid[themeRowIdx] &&
-              DEFAULT_THEME.grid[themeRowIdx][x]
+              this.dailyTheme &&
+              this.dailyTheme.grid[themeRowIdx] &&
+              this.dailyTheme.grid[themeRowIdx][x]
             ) {
-              newLetter = DEFAULT_THEME.grid[themeRowIdx][x];
+              newLetter = this.dailyTheme.grid[themeRowIdx][x];
             } else {
               newLetter = this.getRandomLetter(); // Fallback if theme grid is malformed
             }
@@ -972,6 +979,31 @@ function game() {
       const m = Math.floor(seconds / 60);
       const s = seconds % 60;
       return `${m}:${s.toString().padStart(2, "0")}`;
+    },
+
+    async loadDailyTheme() {
+      if (this.dailyTheme) return; // Already loaded
+
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const day = String(now.getDate()).padStart(2, "0");
+      const dateStr = `${year}${month}${day}`;
+
+      const url = `https://raw.githubusercontent.com/rdevooght/WordGrid/refs/heads/main/themes/${dateStr}.json`;
+
+      try {
+        console.log(`Fetching theme for ${dateStr}...`);
+        const response = await fetch(url);
+        if (!response.ok)
+          throw new Error(`Failed to fetch theme: ${response.status}`);
+        this.dailyTheme = await response.json();
+        console.log("Daily theme loaded:", this.dailyTheme.name);
+      } catch (error) {
+        console.error("Error loading daily theme:", error);
+        this.dailyTheme = null;
+        // Fallback handled in initGame
+      }
     },
   };
 }
