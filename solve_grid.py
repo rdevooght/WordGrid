@@ -39,6 +39,8 @@ def parse_dictionary(dict_path):
     words = []
     with open(dict_path, "r") as f:
         for line in f:
+            if " " in line:
+                line = line.split(" ")[0]
             words.append(line.strip())
     return words
 
