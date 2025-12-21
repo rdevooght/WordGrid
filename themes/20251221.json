@@ -1,0 +1,29 @@
+{
+    "name": "Test grid",
+    "theme-words": [
+        "not",
+        "ready",
+        "yet",
+        "wait"
+    ],
+    "grid-size": [
+        5,
+        7
+    ],
+    "grid": [
+        "REDIL",
+        "EELLN",
+        "HLSAM",
+        "GEPID",
+        "SCNGC",
+        "LIIPL",
+        "ATRML",
+        "WBAES",
+        "PEROT",
+        "SVNDI",
+        "ETYNA",
+        "APALN",
+        "WTSTA",
+        "YEARA"
+    ]
+}
