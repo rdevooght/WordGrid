@@ -276,12 +276,13 @@ class WordPlacer:
 
 
 class Verifier:
-    def __init__(self, visible_height, words, final_grid):
+    def __init__(self, visible_height, words, final_grid, verbose=False):
         self.width = len(final_grid)
         self.full_height = len(final_grid[0])
         self.visible_height = visible_height
         self.words = [w.upper() for w in words]
         self.grid = final_grid  # 2D array, col-major
+        self.verbose = verbose
 
     def verify(self):
         # Make a copy of the grid
@@ -300,9 +301,10 @@ class Verifier:
                 all_paths.extend([(word, path) for path in paths])
 
         if not all_paths:
-            print(
-                f"Verification Failed: Could not find any of the remaining words: {', '.join(remaining_words)}"
-            )
+            if self.verbose:
+                print(
+                    f"Verification Failed: Could not find any of the remaining words: {', '.join(remaining_words)}"
+                )
             return False
 
         # Try all possible paths and ensure none lead to dead ends
@@ -310,9 +312,10 @@ class Verifier:
             next_grid = apply_gravity(grid, path)
             remaining_words.remove(word)
             if not self._check(next_grid, remaining_words):
-                print(
-                    f"Dead end detected: Picking '{word}' at {path} makes future impossible."
-                )
+                if self.verbose:
+                    print(
+                        f"Dead end detected: Picking '{word}' at {path} makes future impossible."
+                    )
                 return False
             remaining_words.append(word)
 
@@ -458,7 +461,7 @@ def main():
     # Retry loop to find the best grid
     max_placement_retries = 100
     max_fill_retries = 100
-    max_solves = 100
+    max_solves = 300
 
     solves = 0
     best_score = -1
@@ -472,7 +475,7 @@ def main():
         if solves >= max_solves:
             break
 
-        generator = WordPlacer(width, height, words)
+        generator = WordPlacer(width, height, words, full_height=int(height * 2.5))
         grid_placement = generator.place_words()
 
         if grid_placement:

@@ -1,0 +1,31 @@
+{
+    "name": "Christmas...",
+    "theme-words": [
+        "cake",
+        "tree",
+        "presents",
+        "lights",
+        "carol",
+        "stockings"
+    ],
+    "grid-size": [
+        5,
+        7
+    ],
+    "grid": [
+        "IKAPT",
+        "RTKOE",
+        "OSISI",
+        "CATNA",
+        "OLOGA",
+        "IASRU",
+        "TNESR",
+        "HGDEP",
+        "ESLCA",
+        "ETRAT",
+        "IWSRE",
+        "CKEDE",
+        "ALOSE",
+        "ANSRE"
+    ]
+}

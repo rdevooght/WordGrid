@@ -1,0 +1,31 @@
+{
+    "name": "Riddle of Strider",
+    "theme-words": [
+        "gold",
+        "glitter",
+        "wander",
+        "lost",
+        "blade",
+        "broken"
+    ],
+    "grid-size": [
+        5,
+        7
+    ],
+    "grid": [
+        "RTLIS",
+        "AEHBK",
+        "EDIEL",
+        "NFCDT",
+        "ITRAB",
+        "PKARL",
+        "YPOWS",
+        "STRMS",
+        "ISLEA",
+        "EOUSN",
+        "NDRED",
+        "GNRTR",
+        "ELAOL",
+        "NITGD"
+    ]
+}

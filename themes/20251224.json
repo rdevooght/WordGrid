@@ -1,0 +1,28 @@
+{
+    "name": "Un rituel",
+    "theme-words": [
+        "connections",
+        "strands",
+        "pips"
+    ],
+    "grid-size": [
+        5,
+        7
+    ],
+    "grid": [
+        "OUVTU",
+        "DPASE",
+        "ERDKP",
+        "LERIS",
+        "LFORA",
+        "ILTER",
+        "MEPSY",
+        "MACTC",
+        "SONET",
+        "PINIT",
+        "MDOTR",
+        "SENAS",
+        "SSNOD",
+        "IUOGR"
+    ]
+}

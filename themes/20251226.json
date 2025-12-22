@@ -1,0 +1,29 @@
+{
+    "name": "Not in my plate!",
+    "theme-words": [
+        "olives",
+        "brussels",
+        "sprouts",
+        "beetroot"
+    ],
+    "grid-size": [
+        5,
+        7
+    ],
+    "grid": [
+        "ONGMA",
+        "TFDSH",
+        "SRNEP",
+        "POIIL",
+        "ERRAF",
+        "BETEY",
+        "MSEUA",
+        "AIOTS",
+        "DNTHA",
+        "OEECL",
+        "LLRSO",
+        "IGSRU",
+        "SVBRR",
+        "SEAYO"
+    ]
+}

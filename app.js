@@ -9,7 +9,7 @@ const ABILITIES_CONFIG = [
     id: "small-hint",
     name: "Small Hint",
     icon: "💡",
-    cost: 5,
+    cost: 10,
     action: "useSmallHint",
     condition: "canSmallHint",
   },
@@ -17,7 +17,7 @@ const ABILITIES_CONFIG = [
     id: "big-hint",
     name: "Big Hint",
     icon: "✨",
-    cost: 10,
+    cost: 20,
     action: "useBigHint",
     condition: "canBigHint",
   },
@@ -43,7 +43,7 @@ const ABILITIES_CONFIG = [
     id: "destruct",
     name: "Destruct",
     icon: "💥",
-    cost: 0,
+    cost: 1,
     action: "destructLastWord",
     condition: "canDestruct",
   },
@@ -786,10 +786,6 @@ function game() {
       }
       return neighbors;
     },
-
-    // Old method for reference (Removed for optimization)
-    // findPathForWord(word) { ... }
-    // dfsPath(...) { ... }
 
     // Small Hint: highlight first letter of a findable word
     useSmallHint() {
