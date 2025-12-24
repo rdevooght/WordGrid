@@ -1,0 +1,31 @@
+{
+    "name": "Lovely ball of fur",
+    "theme-words": [
+        "neron",
+        "joey",
+        "chita",
+        "marsh",
+        "mallow",
+        "nova"
+    ],
+    "grid-size": [
+        5,
+        7
+    ],
+    "grid": [
+        "CADTL",
+        "LVSEL",
+        "AIDEA",
+        "TKSRY",
+        "AOKOF",
+        "OMLCM",
+        "NIOEM",
+        "RWTCI",
+        "TADSH",
+        "LNARC",
+        "LOHYI",
+        "VRCLE",
+        "EFPOI",
+        "NAMOJ"
+    ]
+}

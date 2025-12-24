@@ -1,28 +1,29 @@
 {
-    "name": "Un rituel",
+    "name": "La mission",
     "theme-words": [
         "connections",
         "strands",
-        "pips"
+        "pips",
+        "thisgame"
     ],
     "grid-size": [
         5,
         7
     ],
     "grid": [
-        "OUVTU",
-        "DPASE",
-        "ERDKP",
-        "LERIS",
-        "LFORA",
-        "ILTER",
-        "MEPSY",
-        "MACTC",
-        "SONET",
-        "PINIT",
-        "MDOTR",
-        "SENAS",
-        "SSNOD",
-        "IUOGR"
+        "DRDBS",
+        "EWELO",
+        "STSMV",
+        "ILETA",
+        "PPLCU",
+        "SAAID",
+        "ESRGT",
+        "EMNOH",
+        "STEAS",
+        "YAMDT",
+        "RIIIP",
+        "SAENS",
+        "NCNUC",
+        "OITOH"
     ]
 }
