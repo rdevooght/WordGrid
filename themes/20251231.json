@@ -1,0 +1,33 @@
+{
+  "name": "Eat them on the chimes",
+  "theme-words": [
+    "uva",
+    "uva",
+    "uva",
+    "uva",
+    "uva",
+    "uva",
+    "uva",
+    "uva",
+    "uva",
+    "uva",
+    "uva",
+    "uva"
+  ],
+  "grid-size": [5, 7],
+  "grid": [
+    "OCNHR",
+    "EIASE",
+    "RTNKT",
+    "IDESE",
+    "UVAIA",
+    "AVUMV",
+    "UVABU",
+    "AVUFU",
+    "UVAEV",
+    "AVUIA",
+    "AVULU",
+    "UVADV",
+    "UVALA"
+  ]
+}

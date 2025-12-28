@@ -1,0 +1,21 @@
+{
+  "name": "Bearded magic",
+  "theme-words": ["gandalf", "dumbledore", "merlin", "saruman"],
+  "grid-size": [5, 7],
+  "grid": [
+    "OCNHR",
+    "EIASE",
+    "RTNKT",
+    "IDASA",
+    "STEMI",
+    "NUYDU",
+    "ARPLB",
+    "MIAED",
+    "ENSRO",
+    "INIOR",
+    "DIOAN",
+    "TLGLD",
+    "REFAE",
+    "MAYLI"
+  ]
+}

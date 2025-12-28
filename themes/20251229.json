@@ -1,0 +1,29 @@
+{
+    "name": "D\u00ec \"cheese\" !",
+    "theme-words": [
+        "mozzarella",
+        "gorgonzola",
+        "parmesan",
+        "provolone"
+    ],
+    "grid-size": [
+        5,
+        7
+    ],
+    "grid": [
+        "OEVOS",
+        "NOLOE",
+        "IAMEF",
+        "RRNET",
+        "COTSP",
+        "PSAIU",
+        "PPRNR",
+        "RRETS",
+        "LEEST",
+        "OLOGO",
+        "LARON",
+        "EGNZL",
+        "URAOM",
+        "IOZZA"
+    ]
+}
