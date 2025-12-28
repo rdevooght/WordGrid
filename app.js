@@ -544,7 +544,7 @@ function game() {
       if (word.length < 3) return false;
       // Check if already found (in either list)
       if (this.validWordsHistory.some((h) => h.word === word)) return false;
-      if (this.foundThemeWords.includes(word)) return false;
+      if (!this.themeWords.includes(word)) return false;
 
       if (!this.dictionary) this.processDictionary();
 
@@ -977,19 +977,27 @@ function game() {
       return `${m}:${s.toString().padStart(2, "0")}`;
     },
 
+    checkURLTheme() {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get("date");
+    },
+
     async loadDailyTheme() {
       if (this.dailyTheme) return; // Already loaded
 
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, "0");
-      const day = String(now.getDate()).padStart(2, "0");
-      const dateStr = `${year}${month}${day}`;
+      let theme_id = this.checkURLTheme();
+      if (!theme_id) {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, "0");
+        const day = String(now.getDate()).padStart(2, "0");
+        theme_id = `${year}${month}${day}`;
+      }
 
-      const url = `https://raw.githubusercontent.com/rdevooght/WordGrid/refs/heads/main/themes/${dateStr}.json`;
+      const url = `https://raw.githubusercontent.com/rdevooght/WordGrid/refs/heads/main/themes/${theme_id}.json`;
 
       try {
-        console.log(`Fetching theme for ${dateStr}...`);
+        console.log(`Fetching theme for ${theme_id}...`);
         const response = await fetch(url);
         if (!response.ok)
           throw new Error(`Failed to fetch theme: ${response.status}`);

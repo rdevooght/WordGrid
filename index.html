@@ -119,7 +119,7 @@
                             <span class="theme-count" x-text="`${foundThemeWords.length}/${totalThemeWords}`"></span>
                         </div>
                         <div class="theme-list">
-                            <template x-for="word in foundThemeWords" :key="word">
+                            <template x-for="(word, index) in foundThemeWords" :key="`${word}-${index}`">
                                 <span class="found-word-tag legendary" x-text="word"></span>
                             </template>
 
@@ -129,7 +129,7 @@
                             </div>
 
                             <!-- Missing Theme Words (Only shown when Game Over) -->
-                            <template x-for="word in missingThemeWords" :key="word">
+                            <template x-for="(word, index) in missingThemeWords" :key="`${word}-${index}`">
                                 <span class="found-word-tag missing" x-text="word"></span>
                             </template>
 
