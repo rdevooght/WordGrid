@@ -546,7 +546,7 @@ function game() {
       if (this.validWordsHistory.some((h) => h.word === word)) return false;
       if (
         this.foundThemeWords.includes(word) &&
-        !this.themeWords.includes(word)
+        !this.themeWords.includes(word) // necessary in special situation where the same theme word appears multiple times
       )
         return false;
 
