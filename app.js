@@ -544,7 +544,11 @@ function game() {
       if (word.length < 3) return false;
       // Check if already found (in either list)
       if (this.validWordsHistory.some((h) => h.word === word)) return false;
-      if (!this.themeWords.includes(word)) return false;
+      if (
+        this.foundThemeWords.includes(word) &&
+        !this.themeWords.includes(word)
+      )
+        return false;
 
       if (!this.dictionary) this.processDictionary();
 
